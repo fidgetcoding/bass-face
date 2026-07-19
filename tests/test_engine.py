@@ -134,6 +134,27 @@ def test_sustained_reengage_cancels_release():
     assert e.max_engaged_stage > 0, "sustained re-engage should keep latches"
     print("✓ sustained re-engage cancels release")
 
+def test_dead_zone_drift_unsticks():
+    e = make_engine()
+    t = 0.0
+    _, t = feed(e, shapes_for(brow=0.72), t, 1.0)
+    _, t = feed(e, shapes_for(squint=0.7, browdown=0.5), t, 1.0)
+    # drift: filth raw parks between release and engage thresholds
+    out, t = feed(e, shapes_for(browdown=0.23), t, 4.0)
+    assert e.max_engaged_stage == 0, f"stuck in dead zone: {e.max_engaged_stage}"
+    assert out["ott_brow"] < 0.05, out
+    print("✓ dead-zone drift unsticks via floor rebaseline")
+
+
+def test_held_frontier_not_rebaselined():
+    e = make_engine()
+    t = 0.0
+    _, t = feed(e, shapes_for(brow=0.72), t, 1.0)
+    out, t = feed(e, shapes_for(squint=0.7), t, 3.0)  # deliberate long hold
+    assert e.max_engaged_stage >= 3, "hold above engage must keep the phrase"
+    assert out["phase_squint"] > 0.8, out
+    print("✓ held frontier is not rebaselined")
+
 
 if __name__ == "__main__":
     test_normalization_and_directionality()
@@ -145,4 +166,6 @@ if __name__ == "__main__":
     test_release_ramps_down_not_snap()
     test_blink_does_not_block_release()
     test_sustained_reengage_cancels_release()
+    test_dead_zone_drift_unsticks()
+    test_held_frontier_not_rebaselined()
     print("all passed")

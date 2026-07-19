@@ -32,6 +32,9 @@ CONFIG = {
     "cancel_ms": 150,       # re-engagement must sustain this long to cancel a
                             # release - blinks (~100ms) spike the squint channel
                             # and must not reset the neutral clock
+    "stuck_ms": 1500,       # latched + everything sub-engage this long = the
+                            # resting floor drifted (hood, head pitch, light);
+                            # re-zero floors so the phrase can release
     "gamma": {            # per-channel response curve (1.0 = linear)
         "ott_brow": 1.0,
         "drive_mouth": 1.0,
@@ -82,6 +85,8 @@ class Channel:
     filt: OneEuro
     live: float = 0.0      # smoothed normalized value this frame
     phrase_peak: float = 0.0  # running max since last neutral release
+    floor_track: float | None = None  # drift-adaptive floor (starts at floor)
+    last_raw: float = 0.0
 
 
 @dataclass
@@ -99,9 +104,11 @@ class Engine:
     release_ms: float
     cascade_ms: float = 150.0
     cancel_ms: float = 150.0
+    stuck_ms: float = 1500.0
     max_engaged_stage: int = 0  # highest stage engaged this phrase (1-based)
     neutral_since: float | None = None
     above_since: float | None = None
+    stuck_since: float | None = None
     releasing: bool = False
     t_prev: float | None = None
 
@@ -122,7 +129,8 @@ class Engine:
         return cls(channels=chans, engage=config["engage"],
                    release=config["release"], release_ms=config["release_ms"],
                    cascade_ms=config.get("cascade_ms", 150.0),
-                   cancel_ms=config.get("cancel_ms", 150.0))
+                   cancel_ms=config.get("cancel_ms", 150.0),
+                   stuck_ms=config.get("stuck_ms", 1500.0))
 
     def update(self, shapes: dict[str, float], t: float) -> dict[str, float]:
         dt = (t - self.t_prev) if self.t_prev is not None else 0.0
@@ -130,7 +138,19 @@ class Engine:
         for ch in self.channels:
             raw = sum(shapes.get(m, 0.0) for m in ch.members) / len(ch.members)
             span = max(ch.peak - ch.floor, 1e-6)
-            norm = min(max((raw - ch.floor) / span, 0.0), 1.0) ** ch.gamma
+            if ch.floor_track is None:
+                ch.floor_track = ch.floor
+            # Floors learn ONLY at rest, near the known floor, with slow slew.
+            # Never mid-expression: a brow raise drives browDown raw to 0,
+            # which is expression, not baseline drift.
+            if (self.max_engaged_stage == 0 and dt > 0
+                    and abs(raw - ch.floor_track) < 0.3 * span):
+                rate = 0.1 * span * dt
+                ch.floor_track += max(-rate, min(rate, raw - ch.floor_track))
+            ch.floor_track = min(max(ch.floor_track, 0.0),
+                                 ch.floor + 0.5 * span)
+            ch.last_raw = raw
+            norm = min(max((raw - ch.floor_track) / span, 0.0), 1.0) ** ch.gamma
             ch.live = ch.filt(norm, t)
             ch.phrase_peak = max(ch.phrase_peak, ch.live)
 
@@ -146,6 +166,22 @@ class Engine:
             for stage, ch in enumerate(self.channels, start=1):
                 if stage < self.max_engaged_stage and ch.phrase_peak < 1.0:
                     ch.phrase_peak = min(1.0, ch.phrase_peak + step)
+
+        # Stuck escape: latched but everything sits below engage - the resting
+        # floor drifted (hood, head pitch, lighting) and parked a channel in
+        # the release/engage dead zone. Re-zero floors; release then fires.
+        if (self.max_engaged_stage > 0 and not self.releasing
+                and all(ch.live < self.engage for ch in self.channels)):
+            if self.stuck_since is None:
+                self.stuck_since = t
+            elif (t - self.stuck_since) * 1000 >= self.stuck_ms:
+                for ch in self.channels:
+                    span = max(ch.peak - ch.floor, 1e-6)
+                    ch.floor_track = min(max(ch.floor_track, ch.last_raw),
+                                         ch.floor + 0.5 * span)
+                self.stuck_since = None
+        else:
+            self.stuck_since = None
 
         if all(ch.live < self.release for ch in self.channels):
             self.above_since = None
