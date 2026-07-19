@@ -7,11 +7,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from tracker.core import CHANNEL_ORDER, Engine, newest_calibration
+from tracker.core import CHANNEL_ORDER, Engine
+
+BOOTSTRAP = Path(__file__).resolve().parent.parent / "calibration" / "nate-v1.json"
 
 
 def make_engine() -> Engine:
-    return Engine.from_calibration(Path(newest_calibration()))
+    return Engine.from_calibration(BOOTSTRAP)
 
 
 def shapes_for(brow=0.0, jaw=0.0, squint=0.0, browdown=0.0) -> dict:
@@ -85,6 +87,17 @@ def test_release_all_unlocks():
     assert e.max_engaged_stage == 0 and not e.latched_channels()
     print("✓ release_all unlocks")
 
+def test_direct_to_filth_cascades_lower_stages():
+    e = make_engine()
+    t = 0.0
+    _, t = feed(e, shapes_for(), t, 0.2)  # brief neutral
+    # jump straight to full bass face (browdown + squint, no brow/jaw)
+    out, t = feed(e, shapes_for(squint=0.7, browdown=0.5), t, 1.0)
+    assert out["filth_disgust"] > 0.8, out
+    assert out["ott_brow"] > 0.95, f"cascade failed: {out}"
+    assert out["drive_mouth"] > 0.95, f"cascade failed: {out}"
+    print("✓ direct-to-filth cascades lower stages to full")
+
 
 if __name__ == "__main__":
     test_normalization_and_directionality()
@@ -92,4 +105,5 @@ if __name__ == "__main__":
     test_neutral_release_clears_latches()
     test_pre_engagement_brow_moves_freely()
     test_release_all_unlocks()
+    test_direct_to_filth_cascades_lower_stages()
     print("all passed")

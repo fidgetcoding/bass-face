@@ -27,6 +27,8 @@ CONFIG = {
     "release_ms": 350,    # sustained neutral before latches clear
     "peak_headroom": 0.90,  # full scale at 90% of calibrated max - the true
                             # max is hard to reproduce mid-performance
+    "cascade_ms": 150,      # reaching a stage ramps all lower stages to 1.0
+                            # (jump straight to bass face = everything fills)
     "gamma": {            # per-channel response curve (1.0 = linear)
         "ott_brow": 1.0,
         "drive_mouth": 1.0,
@@ -92,8 +94,10 @@ class Engine:
     engage: float
     release: float
     release_ms: float
+    cascade_ms: float = 150.0
     max_engaged_stage: int = 0  # highest stage engaged this phrase (1-based)
     neutral_since: float | None = None
+    t_prev: float | None = None
 
     @classmethod
     def from_calibration(cls, calib_path: Path, config: dict = CONFIG) -> "Engine":
@@ -110,9 +114,12 @@ class Engine:
                 filt=OneEuro(f["min_cutoff"], f["beta"], f["d_cutoff"]),
             ))
         return cls(channels=chans, engage=config["engage"],
-                   release=config["release"], release_ms=config["release_ms"])
+                   release=config["release"], release_ms=config["release_ms"],
+                   cascade_ms=config.get("cascade_ms", 150.0))
 
     def update(self, shapes: dict[str, float], t: float) -> dict[str, float]:
+        dt = (t - self.t_prev) if self.t_prev is not None else 0.0
+        self.t_prev = t
         for ch in self.channels:
             raw = sum(shapes.get(m, 0.0) for m in ch.members) / len(ch.members)
             span = max(ch.peak - ch.floor, 1e-6)
@@ -123,6 +130,15 @@ class Engine:
         for stage, ch in enumerate(self.channels, start=1):
             if ch.live >= self.engage and stage > self.max_engaged_stage:
                 self.max_engaged_stage = stage
+
+        # Cascade-fill: reaching a stage implies every lower stage completes.
+        # Jump straight to bass face -> OTT/drive/squint ramp to 1.0 in
+        # cascade_ms instead of being skipped.
+        if self.max_engaged_stage > 1 and dt > 0:
+            step = dt / (self.cascade_ms / 1000.0)
+            for stage, ch in enumerate(self.channels, start=1):
+                if stage < self.max_engaged_stage and ch.phrase_peak < 1.0:
+                    ch.phrase_peak = min(1.0, ch.phrase_peak + step)
 
         if all(ch.live < self.release for ch in self.channels):
             if self.neutral_since is None:
