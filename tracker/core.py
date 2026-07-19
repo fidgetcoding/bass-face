@@ -27,7 +27,7 @@ CONFIG = {
     "release_ms": 350,    # sustained neutral before latches clear
     "peak_headroom": 0.90,  # full scale at 90% of calibrated max - the true
                             # max is hard to reproduce mid-performance
-    "cascade_ms": 150,      # reaching a stage ramps all lower stages to 1.0
+    "cascade_ms": 400,      # reaching a stage ramps all lower stages to 1.0
                             # (jump straight to bass face = everything fills)
     "gamma": {            # per-channel response curve (1.0 = linear)
         "ott_brow": 1.0,
