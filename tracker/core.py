@@ -141,6 +141,29 @@ class Engine:
                 if stage < self.max_engaged_stage}
 
 
+def builtin_camera_index() -> int:
+    """Index of the built-in FaceTime camera in AVFoundation order.
+
+    Continuity Camera makes a nearby iPhone the default (index 0); we want the
+    Mac's own camera unless --camera overrides. system_profiler lists cameras
+    in the same order AVFoundation (and thus OpenCV) enumerates them.
+    """
+    import json as _json
+    import subprocess
+    try:
+        out = subprocess.run(
+            ["system_profiler", "SPCameraDataType", "-json"],
+            capture_output=True, text=True, timeout=10).stdout
+        cams = _json.loads(out).get("SPCameraDataType", [])
+        for i, cam in enumerate(cams):
+            name = cam.get("_name", "")
+            if "FaceTime" in name or "Built-in" in name:
+                return i
+    except Exception:
+        pass
+    return 0
+
+
 def newest_calibration() -> Path:
     """Prefer the guided webcam profile over the photo bootstrap."""
     cal_dir = ROOT / "calibration"
@@ -182,6 +205,8 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--no-midi", action="store_true", help="skip virtual MIDI port")
     ap.add_argument("--no-osc", action="store_true", help="skip OSC sender")
+    ap.add_argument("--camera", type=int, default=None,
+                    help="camera index override (default: built-in FaceTime cam)")
     args = ap.parse_args()
     outputs = open_outputs(midi=not args.no_midi, osc=not args.no_osc)
 
@@ -197,7 +222,9 @@ def main() -> None:
     )
     landmarker = vision.FaceLandmarker.create_from_options(opts)
 
-    cap = cv2.VideoCapture(0)
+    cam_idx = args.camera if args.camera is not None else builtin_camera_index()
+    print(f"camera index: {cam_idx}", file=sys.stderr)
+    cap = cv2.VideoCapture(cam_idx)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
     if not cap.isOpened():

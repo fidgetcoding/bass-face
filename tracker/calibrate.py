@@ -55,8 +55,11 @@ def main() -> None:
         output_face_blendshapes=True,
         num_faces=1,
     )
+    sys.path.insert(0, str(ROOT))
+    from tracker.core import builtin_camera_index
+
     landmarker = vision.FaceLandmarker.create_from_options(opts)
-    cap = cv2.VideoCapture(0)
+    cap = cv2.VideoCapture(builtin_camera_index())
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
     if not cap.isOpened():
