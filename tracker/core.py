@@ -25,6 +25,8 @@ CONFIG = {
     "engage": 0.35,       # normalized value that counts as "stage engaged"
     "release": 0.12,      # all channels below this -> candidate neutral
     "release_ms": 350,    # sustained neutral before latches clear
+    "peak_headroom": 0.90,  # full scale at 90% of calibrated max - the true
+                            # max is hard to reproduce mid-performance
     "gamma": {            # per-channel response curve (1.0 = linear)
         "ott_brow": 1.0,
         "drive_mouth": 1.0,
@@ -97,11 +99,13 @@ class Engine:
     def from_calibration(cls, calib_path: Path, config: dict = CONFIG) -> "Engine":
         calib = json.loads(calib_path.read_text())
         f = config["filter"]
+        headroom = config.get("peak_headroom", 1.0)
         chans = []
         for name in CHANNEL_ORDER:
             c = calib["channels"][name]
+            eff_peak = c["floor"] + (c["peak"] - c["floor"]) * headroom
             chans.append(Channel(
-                name=name, members=c["members"], floor=c["floor"], peak=c["peak"],
+                name=name, members=c["members"], floor=c["floor"], peak=eff_peak,
                 gamma=config["gamma"][name],
                 filt=OneEuro(f["min_cutoff"], f["beta"], f["d_cutoff"]),
             ))
