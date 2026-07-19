@@ -75,16 +75,6 @@ def test_pre_engagement_brow_moves_freely():
     assert out["ott_brow"] < 0.35, f"brow should fall freely pre-engagement: {out}"
     print("✓ pre-engagement brow moves freely")
 
-
-if __name__ == "__main__":
-    test_normalization_and_directionality()
-    test_ratchet_locks_brow_through_squint()
-    test_neutral_release_clears_latches()
-    test_pre_engagement_brow_moves_freely()
-    test_release_all_unlocks()
-    print("all passed")
-
-
 def test_release_all_unlocks():
     e = make_engine()
     t = 0.0
@@ -94,3 +84,12 @@ def test_release_all_unlocks():
     e.release_all()
     assert e.max_engaged_stage == 0 and not e.latched_channels()
     print("✓ release_all unlocks")
+
+
+if __name__ == "__main__":
+    test_normalization_and_directionality()
+    test_ratchet_locks_brow_through_squint()
+    test_neutral_release_clears_latches()
+    test_pre_engagement_brow_moves_freely()
+    test_release_all_unlocks()
+    print("all passed")
