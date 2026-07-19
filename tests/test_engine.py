@@ -81,4 +81,16 @@ if __name__ == "__main__":
     test_ratchet_locks_brow_through_squint()
     test_neutral_release_clears_latches()
     test_pre_engagement_brow_moves_freely()
+    test_release_all_unlocks()
     print("all passed")
+
+
+def test_release_all_unlocks():
+    e = make_engine()
+    t = 0.0
+    _, t = feed(e, shapes_for(brow=0.72), t, 1.0)
+    _, t = feed(e, shapes_for(jaw=0.45), t, 1.0)
+    assert e.max_engaged_stage >= 2
+    e.release_all()
+    assert e.max_engaged_stage == 0 and not e.latched_channels()
+    print("✓ release_all unlocks")

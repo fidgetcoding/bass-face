@@ -140,6 +140,40 @@ class Engine:
         return {ch.name for stage, ch in enumerate(self.channels, start=1)
                 if stage < self.max_engaged_stage}
 
+    def release_all(self) -> None:
+        """Manual unlock (head-shake gesture) - same effect as neutral hold."""
+        for ch in self.channels:
+            ch.phrase_peak = 0.0
+        self.max_engaged_stage = 0
+
+
+class ShakeDetector:
+    """Head-shake-to-unlock: >=3 alternating fast yaw swings within a window."""
+
+    def __init__(self, vel_thresh: float = 1.2, window: float = 0.7,
+                 cooldown: float = 1.0):
+        self.vel_thresh, self.window, self.cooldown = vel_thresh, window, cooldown
+        self.events: list[tuple[float, int]] = []
+        self.last_yaw: float | None = None
+        self.last_t = 0.0
+        self.last_fire = -10.0
+
+    def update(self, yaw: float, t: float) -> bool:
+        fired = False
+        if self.last_yaw is not None:
+            vel = (yaw - self.last_yaw) / max(t - self.last_t, 1e-3)
+            if abs(vel) > self.vel_thresh:
+                direction = 1 if vel > 0 else -1
+                if not self.events or self.events[-1][1] != direction:
+                    self.events.append((t, direction))
+        self.events = [(et, d) for et, d in self.events if t - et < self.window]
+        if len(self.events) >= 3 and t - self.last_fire > self.cooldown:
+            fired = True
+            self.last_fire = t
+            self.events.clear()
+        self.last_yaw, self.last_t = yaw, t
+        return fired
+
 
 CAMERA_CONFIG = ROOT / "calibration" / "camera.json"
 
@@ -177,10 +211,12 @@ def save_camera_index(idx: int) -> None:
 
 
 def newest_calibration() -> Path:
-    """Prefer the guided webcam profile over the photo bootstrap."""
+    """Prefer the onboarded webcam profile over the photo bootstrap."""
     cal_dir = ROOT / "calibration"
-    webcam = cal_dir / "nate-webcam.json"
-    return webcam if webcam.exists() else cal_dir / "nate-v1.json"
+    for name in ("profile.json", "nate-webcam.json"):
+        if (cal_dir / name).exists():
+            return cal_dir / name
+    return cal_dir / "nate-v1.json"
 
 
 LABELS = {
@@ -220,17 +256,17 @@ def main() -> None:
     ap.add_argument("--camera", type=int, default=None,
                     help="camera index override (default: built-in FaceTime cam)")
     ap.add_argument("--no-preview", action="store_true", help="terminal meters only")
+    ap.add_argument("--recalibrate", action="store_true",
+                    help="redo the guided calibration before tracking")
     args = ap.parse_args()
     outputs = open_outputs(midi=not args.no_midi, osc=not args.no_osc)
-
-    engine = Engine.from_calibration(newest_calibration())
-    print(f"calibration: {newest_calibration().name}", file=sys.stderr)
 
     opts = vision.FaceLandmarkerOptions(
         base_options=mp_python.BaseOptions(
             model_asset_path=str(ROOT / "models" / "face_landmarker.task")),
         running_mode=vision.RunningMode.VIDEO,
         output_face_blendshapes=True,
+        output_facial_transformation_matrixes=True,
         num_faces=1,
     )
     landmarker = vision.FaceLandmarker.create_from_options(opts)
@@ -252,6 +288,18 @@ def main() -> None:
         sys.exit("camera unavailable - check System Settings > Privacy > Camera")
 
     t0 = time.monotonic()
+
+    from tracker.calibrate import PROFILE, run_calibration
+    if args.recalibrate or not PROFILE.exists():
+        print("no calibration profile - running guided onboarding first",
+              file=sys.stderr)
+        run_calibration(cap, landmarker, t0)
+
+    engine = Engine.from_calibration(newest_calibration())
+    print(f"calibration: {newest_calibration().name}", file=sys.stderr)
+    shake = ShakeDetector()
+    unlocked_flash_until = 0.0
+
     frames = 0
     fps = 0.0
     try:
@@ -273,6 +321,14 @@ def main() -> None:
             else:
                 out = {name: 0.0 for name in CHANNEL_ORDER}
 
+            if result.facial_transformation_matrixes:
+                m = result.facial_transformation_matrixes[0]
+                yaw = math.atan2(m[0][2], m[2][2])
+                if shake.update(yaw, t):
+                    engine.release_all()
+                    unlocked_flash_until = t + 0.6
+                    print("unlocked (head shake)", file=sys.stderr)
+
             for o in outputs:
                 o.send(out)
 
@@ -293,9 +349,13 @@ def main() -> None:
                         label += " LOCK"
                     cv2.putText(disp, label, (218, y + 14),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1)
-                cv2.putText(disp, f"cam {cam_idx}  (c = switch, q = quit)",
+                cv2.putText(disp, f"cam {cam_idx}  (c = switch, q = quit, "
+                            f"shake head = unlock)",
                             (10, h - 12), cv2.FONT_HERSHEY_SIMPLEX, 0.45,
                             (200, 200, 200), 1)
+                if t < unlocked_flash_until:
+                    cv2.putText(disp, "UNLOCKED", (w // 2 - 90, 50),
+                                cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 255, 0), 3)
                 cv2.imshow("Bass Face", disp)
                 key = cv2.waitKey(1) & 0xFF
                 if key == ord("q"):
