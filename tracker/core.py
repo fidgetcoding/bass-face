@@ -175,39 +175,39 @@ class ShakeDetector:
         return fired
 
 
-CAMERA_CONFIG = ROOT / "calibration" / "camera.json"
 
 
-def camera_devices() -> list[str]:
-    """Camera names via AVFoundation. Order may NOT match OpenCV's indices -
-    used only for the count and display, never for index mapping."""
+def camera_devices() -> list[tuple[str, str]]:
+    """(name, deviceType) in OpenCV's exact index order.
+
+    Mirrors cap_avfoundation_mac.mm: video + muxed devices, sorted by
+    uniqueID string compare. Computed at call time because Continuity
+    Camera (iPhone) joins/leaves the list and reshuffles every index.
+    """
     try:
         import AVFoundation as AVF
-        devs = AVF.AVCaptureDevice.devicesWithMediaType_(AVF.AVMediaTypeVideo)
-        return [str(d.localizedName()) for d in devs]
+        devs = list(AVF.AVCaptureDevice.devicesWithMediaType_(AVF.AVMediaTypeVideo))
+        devs += list(AVF.AVCaptureDevice.devicesWithMediaType_(AVF.AVMediaTypeMuxed))
+        devs.sort(key=lambda d: str(d.uniqueID()))
+        return [(str(d.localizedName()), str(d.deviceType())) for d in devs]
     except Exception:
         return []
 
 
 def builtin_camera_index() -> int:
-    """Best-effort initial pick. OpenCV's device order is not observable from
-    outside (differs from every AVFoundation enumeration, and Continuity
-    Camera reshuffles it), so a saved user choice always wins; the preview's
-    'c' key cycles cameras and persists the correction."""
-    if CAMERA_CONFIG.exists():
-        try:
-            return int(json.loads(CAMERA_CONFIG.read_text())["index"])
-        except Exception:
-            pass
+    """Machine camera's OpenCV index, computed fresh. deviceType match, never
+    name guessing. No saved index - indices aren't stable across launches
+    (Continuity Camera reshuffles them), so remembering one is a footgun."""
     devs = camera_devices()
-    for i, name in enumerate(devs):
+    for i, (name, dtype) in enumerate(devs):
+        if "BuiltIn" in dtype:
+            return i
+    for i, (name, dtype) in enumerate(devs):
         if "FaceTime" in name or "Built-in" in name:
             return i
     return 0
 
 
-def save_camera_index(idx: int) -> None:
-    CAMERA_CONFIG.write_text(json.dumps({"index": idx}))
 
 
 def newest_calibration() -> Path:
@@ -271,11 +271,12 @@ def main() -> None:
     )
     landmarker = vision.FaceLandmarker.create_from_options(opts)
 
-    n_cams = max(len(camera_devices()), 1)
+    devs = camera_devices()
+    n_cams = max(len(devs), 1)
     cam_idx = args.camera if args.camera is not None else builtin_camera_index()
-    print(f"cameras detected: {camera_devices() or 'unknown'}", file=sys.stderr)
-    print(f"opening camera index {cam_idx} - wrong camera? press c in the "
-          f"preview to cycle (choice is remembered)", file=sys.stderr)
+    for i, (name, dtype) in enumerate(devs):
+        marker = " <- using" if i == cam_idx else ""
+        print(f"  cam {i}: {name}{marker}", file=sys.stderr)
 
     def open_camera(idx: int):
         c = cv2.VideoCapture(idx)
@@ -286,6 +287,39 @@ def main() -> None:
     cap = open_camera(cam_idx)
     if not cap.isOpened():
         sys.exit("camera unavailable - check System Settings > Privacy > Camera")
+
+    def cycle_camera(idx):
+        idx = (idx + 1) % max(n_cams, idx + 2)
+        new = open_camera(idx)
+        if not new.isOpened():
+            idx = 0
+            new = open_camera(idx)
+        print(f"switched to camera {idx}", file=sys.stderr)
+        return idx, new
+
+    # Preflight: user confirms the face camera BEFORE calibration/tracking.
+    if not args.no_preview:
+        while True:
+            ok, frame = cap.read()
+            if not ok:
+                continue
+            disp = cv2.flip(frame, 1)
+            cv2.putText(disp, "THIS CAMERA?", (20, 44),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1.1, (0, 200, 255), 3)
+            cv2.putText(disp, "c = switch camera   ENTER = start",
+                        (20, 84), cv2.FONT_HERSHEY_SIMPLEX, 0.6,
+                        (255, 255, 255), 1)
+            cv2.imshow("Bass Face", disp)
+            key = cv2.waitKey(1) & 0xFF
+            if key == ord("c"):
+                cap.release()
+                cam_idx, cap = cycle_camera(cam_idx)
+            elif key in (13, ord("s")):
+                break
+            elif key == ord("q"):
+                cap.release()
+                cv2.destroyAllWindows()
+                return
 
     t0 = time.monotonic()
 
@@ -361,14 +395,8 @@ def main() -> None:
                 if key == ord("q"):
                     break
                 if key == ord("c"):
-                    cam_idx = (cam_idx + 1) % max(n_cams, cam_idx + 2)
                     cap.release()
-                    cap = open_camera(cam_idx)
-                    if not cap.isOpened():
-                        cam_idx = 0
-                        cap = open_camera(cam_idx)
-                    save_camera_index(cam_idx)
-                    print(f"switched to camera {cam_idx} (saved)", file=sys.stderr)
+                    cam_idx, cap = cycle_camera(cam_idx)
 
             frames += 1
             if frames % 10 == 0:

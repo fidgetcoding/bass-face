@@ -137,7 +137,7 @@ def main() -> None:
         num_faces=1,
     )
     landmarker = vision.FaceLandmarker.create_from_options(opts)
-    cap = cv2.VideoCapture(builtin_camera_index())
+    cap = cv2.VideoCapture(builtin_camera_index())  # standalone: no preflight
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
     if not cap.isOpened():
