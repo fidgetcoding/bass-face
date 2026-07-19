@@ -40,6 +40,15 @@ def _channel_value(shapes: dict, members: list[str]) -> float:
     return float(np.mean([shapes.get(m, 0.0) for m in members]))
 
 
+def play(sound: str) -> None:
+    """Fire-and-forget macOS system sound (Tink, Pop, Glass, Hero...)."""
+    import subprocess
+    path = Path(f"/System/Library/Sounds/{sound}.aiff")
+    if path.exists():
+        subprocess.Popen(["afplay", str(path)],
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
 def run_calibration(cap, landmarker, t0: float) -> Path:
     """Guided flow on an already-open capture + landmarker. Returns profile path."""
     import cv2
@@ -56,6 +65,7 @@ def run_calibration(cap, landmarker, t0: float) -> Path:
 
     def capture(seconds, title, prompt):
         """Collect per-channel raw values for `seconds`, with live preview."""
+        play("Pop")
         vals = {ch: [] for ch in CHANNEL_MEMBERS}
         dropped = 0
         t_end = time.monotonic() + seconds
@@ -77,10 +87,12 @@ def run_calibration(cap, landmarker, t0: float) -> Path:
         n = len(vals["ott_brow"])
         if n < 10:
             sys.exit(f"only {n} usable frames ({dropped} dropped) - lighting? re-run")
+        play("Glass")
         return vals
 
     def countdown(title, prompt):
         for n in range(COUNTDOWN_S, 0, -1):
+            play("Tink")
             t_end = time.monotonic() + 1
             while time.monotonic() < t_end:
                 ok, frame = cap.read()
@@ -111,6 +123,7 @@ def run_calibration(cap, landmarker, t0: float) -> Path:
         print(f"{ch:<14} {floor:.3f}   {peak:.3f}")
 
     PROFILE.write_text(json.dumps(calib, indent=2))
+    play("Hero")
     print(f"\nwrote {PROFILE}")
     return PROFILE
 
