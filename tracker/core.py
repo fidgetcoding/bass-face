@@ -169,10 +169,21 @@ def render(out: dict[str, float], latched: set[str], fps: float, infer_ms: float
 
 
 def main() -> None:
+    import argparse
+
     import cv2
     import mediapipe as mp
     from mediapipe.tasks import python as mp_python
     from mediapipe.tasks.python import vision
+
+    sys.path.insert(0, str(ROOT))
+    from tracker.outputs import open_outputs
+
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--no-midi", action="store_true", help="skip virtual MIDI port")
+    ap.add_argument("--no-osc", action="store_true", help="skip OSC sender")
+    args = ap.parse_args()
+    outputs = open_outputs(midi=not args.no_midi, osc=not args.no_osc)
 
     engine = Engine.from_calibration(newest_calibration())
     print(f"calibration: {newest_calibration().name}", file=sys.stderr)
@@ -214,6 +225,9 @@ def main() -> None:
             else:
                 out = {name: 0.0 for name in CHANNEL_ORDER}
 
+            for o in outputs:
+                o.send(out)
+
             frames += 1
             if frames % 10 == 0:
                 fps = 10 / max(t - getattr(main, "_t_fps", t0), 1e-6)
@@ -224,6 +238,8 @@ def main() -> None:
         pass
     finally:
         cap.release()
+        for o in outputs:
+            o.close()
 
 
 if __name__ == "__main__":
