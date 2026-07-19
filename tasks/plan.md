@@ -98,6 +98,17 @@ face → sound audibly < ~50ms or tune.
       Verify: on-camera test wearing sunglasses — OTT still controllable via head
       pitch, no channel emits garbage.
 
+### v2 backlog — secret settings (easter eggs, logged 2026-07-19)
+
+Both require adding MediaPipe HandLandmarker as a second model (shared with
+the hand-raise-unlock idea); head-shake unlock turns both off.
+
+- **Spoon / key bump** — object-to-nose gesture (hand-near-nose proxy)
+  engages LFO randomization on ALL parameters.
+- **Hands on head** — hands approaching/touching the head drive a reverb
+  send; contact = 100% wet, frozen in time. Proximity is continuous
+  (closer = wetter).
+
 ### Phase 6: Ship (separate session)
 - [ ] PyInstaller .app bundle, first-run camera-permission UX, Patreon packaging,
       demo video capture. Windows/FL (MIDI-only) = v2.

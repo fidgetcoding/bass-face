@@ -12,3 +12,4 @@
 - [ ] T6: Feel pass (curves, ratchet release, smoothing) — live with Nate
 - [ ] T7: Occlusion resilience (sunglasses detection + fallback map) — sunglasses test
 - [ ] Ship phase (separate session): .app bundle, Patreon drop, demo capture
+- [ ] v2: secret settings — spoon/key bump (LFO chaos) + hands-on-head (reverb freeze); needs HandLandmarker
