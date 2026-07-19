@@ -75,9 +75,15 @@ immediately" achieved before the device exists.
 ### Phase 4: M4L mapper device
 - [ ] T5: `m4l/BassFace.maxpat` — udpreceive 7400 → route → 4 channel strips
       (live.dial + Map button → live.remote~ binding, Expression Control pattern).
+      Automation design: live.remote~ is modulation-only (Ableton does not record
+      it as automation — same as the stock LFO device). Recording envelopes is the
+      MIDI path's job, AND the device's own 4 channel dials are automatable Live
+      parameters → a face performance records as 4 editable automation lanes on
+      the Bass Face device itself. Per-slot Remote/Rec mode toggle.
       Delivery: Max "New From Clipboard" → save as .amxd into User Library.
       Verify: map ott_brow → OTT depth on a real chain; all 4 map/unmap clean;
-      device survives Live restart + set reload.
+      device survives Live restart + set reload; automation lanes record from a
+      face take with Automation Arm on.
 
 ### Checkpoint C — full product path works end-to-end. Latency feel test on camera:
 face → sound audibly < ~50ms or tune.
