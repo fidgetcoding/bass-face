@@ -141,27 +141,39 @@ class Engine:
                 if stage < self.max_engaged_stage}
 
 
-def builtin_camera_index() -> int:
-    """Index of the built-in FaceTime camera in AVFoundation order.
+CAMERA_CONFIG = ROOT / "calibration" / "camera.json"
 
-    Continuity Camera makes a nearby iPhone the default (index 0); we want the
-    Mac's own camera unless --camera overrides. system_profiler lists cameras
-    in the same order AVFoundation (and thus OpenCV) enumerates them.
-    """
-    import json as _json
-    import subprocess
+
+def camera_devices() -> list[str]:
+    """Camera names via AVFoundation. Order may NOT match OpenCV's indices -
+    used only for the count and display, never for index mapping."""
     try:
-        out = subprocess.run(
-            ["system_profiler", "SPCameraDataType", "-json"],
-            capture_output=True, text=True, timeout=10).stdout
-        cams = _json.loads(out).get("SPCameraDataType", [])
-        for i, cam in enumerate(cams):
-            name = cam.get("_name", "")
-            if "FaceTime" in name or "Built-in" in name:
-                return i
+        import AVFoundation as AVF
+        devs = AVF.AVCaptureDevice.devicesWithMediaType_(AVF.AVMediaTypeVideo)
+        return [str(d.localizedName()) for d in devs]
     except Exception:
-        pass
+        return []
+
+
+def builtin_camera_index() -> int:
+    """Best-effort initial pick. OpenCV's device order is not observable from
+    outside (differs from every AVFoundation enumeration, and Continuity
+    Camera reshuffles it), so a saved user choice always wins; the preview's
+    'c' key cycles cameras and persists the correction."""
+    if CAMERA_CONFIG.exists():
+        try:
+            return int(json.loads(CAMERA_CONFIG.read_text())["index"])
+        except Exception:
+            pass
+    devs = camera_devices()
+    for i, name in enumerate(devs):
+        if "FaceTime" in name or "Built-in" in name:
+            return i
     return 0
+
+
+def save_camera_index(idx: int) -> None:
+    CAMERA_CONFIG.write_text(json.dumps({"index": idx}))
 
 
 def newest_calibration() -> Path:
@@ -223,11 +235,19 @@ def main() -> None:
     )
     landmarker = vision.FaceLandmarker.create_from_options(opts)
 
+    n_cams = max(len(camera_devices()), 1)
     cam_idx = args.camera if args.camera is not None else builtin_camera_index()
-    print(f"camera index: {cam_idx}", file=sys.stderr)
-    cap = cv2.VideoCapture(cam_idx)
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+    print(f"cameras detected: {camera_devices() or 'unknown'}", file=sys.stderr)
+    print(f"opening camera index {cam_idx} - wrong camera? press c in the "
+          f"preview to cycle (choice is remembered)", file=sys.stderr)
+
+    def open_camera(idx: int):
+        c = cv2.VideoCapture(idx)
+        c.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+        c.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        return c
+
+    cap = open_camera(cam_idx)
     if not cap.isOpened():
         sys.exit("camera unavailable - check System Settings > Privacy > Camera")
 
@@ -273,9 +293,22 @@ def main() -> None:
                         label += " LOCK"
                     cv2.putText(disp, label, (218, y + 14),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1)
+                cv2.putText(disp, f"cam {cam_idx}  (c = switch, q = quit)",
+                            (10, h - 12), cv2.FONT_HERSHEY_SIMPLEX, 0.45,
+                            (200, 200, 200), 1)
                 cv2.imshow("Bass Face", disp)
-                if cv2.waitKey(1) & 0xFF == ord("q"):
+                key = cv2.waitKey(1) & 0xFF
+                if key == ord("q"):
                     break
+                if key == ord("c"):
+                    cam_idx = (cam_idx + 1) % max(n_cams, cam_idx + 2)
+                    cap.release()
+                    cap = open_camera(cam_idx)
+                    if not cap.isOpened():
+                        cam_idx = 0
+                        cap = open_camera(cam_idx)
+                    save_camera_index(cam_idx)
+                    print(f"switched to camera {cam_idx} (saved)", file=sys.stderr)
 
             frames += 1
             if frames % 10 == 0:
