@@ -51,7 +51,7 @@ def run_calibration(cap, landmarker, t0: float) -> Path:
         cv2.putText(disp, line1, (20, 44), cv2.FONT_HERSHEY_SIMPLEX, 1.1, color, 3)
         cv2.putText(disp, line2, (20, 84), cv2.FONT_HERSHEY_SIMPLEX, 0.6,
                     (255, 255, 255), 1)
-        cv2.imshow("Bass Face Calibration", disp)
+        cv2.imshow("Bass Face", disp)
         cv2.waitKey(1)
 
     def capture(seconds, title, prompt):
@@ -112,11 +112,6 @@ def run_calibration(cap, landmarker, t0: float) -> Path:
 
     PROFILE.write_text(json.dumps(calib, indent=2))
     print(f"\nwrote {PROFILE}")
-    try:
-        import cv2 as _cv2
-        _cv2.destroyWindow("Bass Face Calibration")
-    except Exception:
-        pass
     return PROFILE
 
 
