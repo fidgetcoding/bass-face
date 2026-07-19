@@ -97,6 +97,7 @@ class Engine:
     cascade_ms: float = 150.0
     max_engaged_stage: int = 0  # highest stage engaged this phrase (1-based)
     neutral_since: float | None = None
+    releasing: bool = False
     t_prev: float | None = None
 
     @classmethod
@@ -144,11 +145,20 @@ class Engine:
             if self.neutral_since is None:
                 self.neutral_since = t
             elif (t - self.neutral_since) * 1000 >= self.release_ms:
-                for ch in self.channels:
-                    ch.phrase_peak = 0.0
-                self.max_engaged_stage = 0
+                self.releasing = True
         else:
             self.neutral_since = None
+            self.releasing = False  # face re-engaged - catch the fall
+
+        # Release ramp: latched channels drain to 0 at the cascade rate, so
+        # the way down mirrors the way up instead of snapping.
+        if self.releasing and dt > 0:
+            step = dt / (self.cascade_ms / 1000.0)
+            for ch in self.channels:
+                ch.phrase_peak = max(0.0, ch.phrase_peak - step)
+            if all(ch.phrase_peak == 0.0 for ch in self.channels):
+                self.releasing = False
+                self.max_engaged_stage = 0
 
         out = {}
         for stage, ch in enumerate(self.channels, start=1):

@@ -98,6 +98,18 @@ def test_direct_to_filth_cascades_lower_stages():
     assert out["drive_mouth"] > 0.95, f"cascade failed: {out}"
     print("✓ direct-to-filth cascades lower stages to full")
 
+def test_release_ramps_down_not_snap():
+    e = make_engine()
+    t = 0.0
+    _, t = feed(e, shapes_for(brow=0.72), t, 1.0)
+    _, t = feed(e, shapes_for(squint=0.7, browdown=0.5), t, 1.0)  # latch ott at 1.0
+    # neutral for release_ms (350) + ~half the 400ms ramp
+    out, t = feed(e, shapes_for(), t, 0.55)
+    assert 0.15 < out["ott_brow"] < 0.85, f"should be mid-drain: {out}"
+    out, t = feed(e, shapes_for(), t, 1.0)  # ramp completes
+    assert out["ott_brow"] < 0.05 and e.max_engaged_stage == 0, out
+    print("✓ release ramps down instead of snapping")
+
 
 if __name__ == "__main__":
     test_normalization_and_directionality()
@@ -106,4 +118,5 @@ if __name__ == "__main__":
     test_pre_engagement_brow_moves_freely()
     test_release_all_unlocks()
     test_direct_to_filth_cascades_lower_stages()
+    test_release_ramps_down_not_snap()
     print("all passed")
