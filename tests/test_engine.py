@@ -103,8 +103,9 @@ def test_release_ramps_down_not_snap():
     t = 0.0
     _, t = feed(e, shapes_for(brow=0.72), t, 1.0)
     _, t = feed(e, shapes_for(squint=0.7, browdown=0.5), t, 1.0)  # latch ott at 1.0
-    # neutral for release_ms (350) + ~half the 400ms ramp
-    out, t = feed(e, shapes_for(), t, 0.55)
+    # smoothing needs ~330ms to reach neutral threshold, then 350ms confirm,
+    # then the 400ms drain starts: probe mid-drain at 0.9s
+    out, t = feed(e, shapes_for(), t, 0.9)
     assert 0.15 < out["ott_brow"] < 0.85, f"should be mid-drain: {out}"
     out, t = feed(e, shapes_for(), t, 1.0)  # ramp completes
     assert out["ott_brow"] < 0.05 and e.max_engaged_stage == 0, out

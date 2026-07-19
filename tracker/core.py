@@ -135,7 +135,7 @@ class Engine:
         # Cascade-fill: reaching a stage implies every lower stage completes.
         # Jump straight to bass face -> OTT/drive/squint ramp to 1.0 in
         # cascade_ms instead of being skipped.
-        if self.max_engaged_stage > 1 and dt > 0:
+        if self.max_engaged_stage > 1 and dt > 0 and not self.releasing:
             step = dt / (self.cascade_ms / 1000.0)
             for stage, ch in enumerate(self.channels, start=1):
                 if stage < self.max_engaged_stage and ch.phrase_peak < 1.0:
