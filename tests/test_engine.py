@@ -111,6 +111,29 @@ def test_release_ramps_down_not_snap():
     assert out["ott_brow"] < 0.05 and e.max_engaged_stage == 0, out
     print("✓ release ramps down instead of snapping")
 
+def test_blink_does_not_block_release():
+    e = make_engine()
+    t = 0.0
+    _, t = feed(e, shapes_for(brow=0.72), t, 1.0)
+    _, t = feed(e, shapes_for(squint=0.7, browdown=0.5), t, 1.0)
+    _, t = feed(e, shapes_for(), t, 0.5)                 # relaxing...
+    _, t = feed(e, shapes_for(squint=0.9), t, 0.1)       # blink spike (100ms)
+    out, t = feed(e, shapes_for(), t, 1.5)               # keep relaxing
+    assert e.max_engaged_stage == 0, f"blink blocked release: {e.max_engaged_stage}"
+    assert out["ott_brow"] < 0.05, out
+    print("✓ blink does not block release")
+
+
+def test_sustained_reengage_cancels_release():
+    e = make_engine()
+    t = 0.0
+    _, t = feed(e, shapes_for(brow=0.72), t, 1.0)
+    _, t = feed(e, shapes_for(squint=0.7, browdown=0.5), t, 1.0)
+    _, t = feed(e, shapes_for(), t, 0.8)                 # drain likely started
+    _, t = feed(e, shapes_for(squint=0.7), t, 0.5)       # real re-engage
+    assert e.max_engaged_stage > 0, "sustained re-engage should keep latches"
+    print("✓ sustained re-engage cancels release")
+
 
 if __name__ == "__main__":
     test_normalization_and_directionality()
@@ -120,4 +143,6 @@ if __name__ == "__main__":
     test_release_all_unlocks()
     test_direct_to_filth_cascades_lower_stages()
     test_release_ramps_down_not_snap()
+    test_blink_does_not_block_release()
+    test_sustained_reengage_cancels_release()
     print("all passed")

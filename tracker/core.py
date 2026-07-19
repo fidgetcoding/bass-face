@@ -29,6 +29,9 @@ CONFIG = {
                             # max is hard to reproduce mid-performance
     "cascade_ms": 400,      # reaching a stage ramps all lower stages to 1.0
                             # (jump straight to bass face = everything fills)
+    "cancel_ms": 150,       # re-engagement must sustain this long to cancel a
+                            # release - blinks (~100ms) spike the squint channel
+                            # and must not reset the neutral clock
     "gamma": {            # per-channel response curve (1.0 = linear)
         "ott_brow": 1.0,
         "drive_mouth": 1.0,
@@ -95,8 +98,10 @@ class Engine:
     release: float
     release_ms: float
     cascade_ms: float = 150.0
+    cancel_ms: float = 150.0
     max_engaged_stage: int = 0  # highest stage engaged this phrase (1-based)
     neutral_since: float | None = None
+    above_since: float | None = None
     releasing: bool = False
     t_prev: float | None = None
 
@@ -116,7 +121,8 @@ class Engine:
             ))
         return cls(channels=chans, engage=config["engage"],
                    release=config["release"], release_ms=config["release_ms"],
-                   cascade_ms=config.get("cascade_ms", 150.0))
+                   cascade_ms=config.get("cascade_ms", 150.0),
+                   cancel_ms=config.get("cancel_ms", 150.0))
 
     def update(self, shapes: dict[str, float], t: float) -> dict[str, float]:
         dt = (t - self.t_prev) if self.t_prev is not None else 0.0
@@ -142,13 +148,20 @@ class Engine:
                     ch.phrase_peak = min(1.0, ch.phrase_peak + step)
 
         if all(ch.live < self.release for ch in self.channels):
+            self.above_since = None
             if self.neutral_since is None:
                 self.neutral_since = t
             elif (t - self.neutral_since) * 1000 >= self.release_ms:
                 self.releasing = True
         else:
-            self.neutral_since = None
-            self.releasing = False  # face re-engaged - catch the fall
+            # Debounce: blinks spike the squint channel for ~100ms and must
+            # not reset the neutral clock. Only a SUSTAINED re-engagement
+            # cancels the release (catch-the-fall).
+            if self.above_since is None:
+                self.above_since = t
+            if (t - self.above_since) * 1000 >= self.cancel_ms:
+                self.neutral_since = None
+                self.releasing = False
 
         # Release ramp: latched channels drain to 0 at the cascade rate, so
         # the way down mirrors the way up instead of snapping.
