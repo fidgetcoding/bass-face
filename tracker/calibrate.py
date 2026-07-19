@@ -68,11 +68,23 @@ def main() -> None:
     t0 = time.monotonic()
     samples: dict[str, dict[str, list[float]]] = {}
 
+    def show(frame, line1, line2, capturing):
+        disp = cv2.flip(frame, 1)
+        color = (0, 0, 255) if capturing else (0, 200, 255)
+        cv2.putText(disp, line1, (20, 44), cv2.FONT_HERSHEY_SIMPLEX, 1.1, color, 3)
+        cv2.putText(disp, line2, (20, 84), cv2.FONT_HERSHEY_SIMPLEX, 0.6,
+                    (255, 255, 255), 1)
+        cv2.imshow("Bass Face Calibration", disp)
+        cv2.waitKey(1)
+
     for phase, prompt in PHASES:
         print(f"\n>>> {phase.upper()}: {prompt}")
         for n in range(COUNTDOWN_S, 0, -1):
-            print(f"    {n}...")
-            time.sleep(1)
+            t_end = time.monotonic() + 1
+            while time.monotonic() < t_end:
+                ok, frame = cap.read()
+                if ok:
+                    show(frame, f"{phase.upper()} in {n}", prompt, capturing=False)
         print("    HOLD")
         phase_samples: dict[str, list[float]] = {ch: [] for ch in CHANNEL_MEMBERS}
         dropped = 0
@@ -81,6 +93,7 @@ def main() -> None:
             ok, frame = cap.read()
             if not ok:
                 continue
+            show(frame, f"HOLD {phase.upper()}", prompt, capturing=True)
             rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             mp_img = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
             ts = int((time.monotonic() - t0) * 1000)
@@ -99,6 +112,7 @@ def main() -> None:
         samples[phase] = phase_samples
 
     cap.release()
+    cv2.destroyAllWindows()
 
     calib = {"subject": "nate", "version": 2, "source": "webcam-guided", "channels": {}}
     print("\nchannel        floor   peak")

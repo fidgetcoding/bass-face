@@ -207,6 +207,7 @@ def main() -> None:
     ap.add_argument("--no-osc", action="store_true", help="skip OSC sender")
     ap.add_argument("--camera", type=int, default=None,
                     help="camera index override (default: built-in FaceTime cam)")
+    ap.add_argument("--no-preview", action="store_true", help="terminal meters only")
     args = ap.parse_args()
     outputs = open_outputs(midi=not args.no_midi, osc=not args.no_osc)
 
@@ -255,6 +256,27 @@ def main() -> None:
             for o in outputs:
                 o.send(out)
 
+            if not args.no_preview:
+                disp = cv2.flip(frame, 1)
+                h, w = disp.shape[:2]
+                if result.face_landmarks:
+                    for lm in result.face_landmarks[0][::2]:
+                        cv2.circle(disp, (w - int(lm.x * w), int(lm.y * h)),
+                                   1, (0, 255, 0), -1)
+                for i, name in enumerate(CHANNEL_ORDER):
+                    v, y = out[name], 20 + i * 28
+                    cv2.rectangle(disp, (10, y), (10 + int(v * 200), y + 18),
+                                  (0, 140, 255), -1)
+                    cv2.rectangle(disp, (10, y), (210, y + 18), (255, 255, 255), 1)
+                    label = LABELS[name].split()[0]
+                    if name in engine.latched_channels():
+                        label += " LOCK"
+                    cv2.putText(disp, label, (218, y + 14),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1)
+                cv2.imshow("Bass Face", disp)
+                if cv2.waitKey(1) & 0xFF == ord("q"):
+                    break
+
             frames += 1
             if frames % 10 == 0:
                 fps = 10 / max(t - getattr(main, "_t_fps", t0), 1e-6)
@@ -265,6 +287,7 @@ def main() -> None:
         pass
     finally:
         cap.release()
+        cv2.destroyAllWindows()
         for o in outputs:
             o.close()
 
