@@ -38,25 +38,37 @@ CHANNELS = {
     "ott_brow": ["browInnerUp", "browOuterUpLeft", "browOuterUpRight"],
     "drive_mouth": ["jawOpen"],
     "phase_squint": ["eyeSquintLeft", "eyeSquintRight", "eyeBlinkLeft", "eyeBlinkRight"],
-    "filth_disgust": ["noseSneerLeft", "noseSneerRight", "cheekSquintLeft", "cheekSquintRight"],
+    # noseSneer/cheekSquint read 0.000 on Nate's face (weak MediaPipe blendshapes);
+    # browDown separates bass-face (0.50) from eyes-closed (0.02) cleanly.
+    "filth_disgust": ["browDownLeft", "browDownRight"],
 }
 
 
+FOREHEAD, CHIN = 10, 152  # face-mesh landmark indices
+
+
 def detect(landmarker, img: Image.Image):
-    """Return (blendshape dict, detection score proxy) for the best rotation."""
+    """Return (blendshape dict, rotation) for the upright-face rotation.
+
+    A face detected sideways/upside-down still yields blendshapes — garbage ones.
+    Correct rotation is the one where the forehead->chin vector points straight
+    down in image space.
+    """
     best = None
     for rot in (0, 90, 180, 270):
         rotated = img.rotate(rot, expand=True) if rot else img
         arr = np.asarray(rotated.convert("RGB"))
         mp_img = mp.Image(image_format=mp.ImageFormat.SRGB, data=arr)
         result = landmarker.detect(mp_img)
-        if result.face_blendshapes:
-            shapes = {c.category_name: c.score for c in result.face_blendshapes[0]}
-            # Use total activation as a crude "how confidently frontal" proxy
-            quality = sum(shapes.values())
-            if best is None or quality > best[2]:
-                best = (shapes, rot, quality)
-    if best is None:
+        if result.face_blendshapes and result.face_landmarks:
+            lms = result.face_landmarks[0]
+            dx = lms[CHIN].x - lms[FOREHEAD].x
+            dy = lms[CHIN].y - lms[FOREHEAD].y
+            uprightness = dy / (np.hypot(dx, dy) + 1e-9)  # 1.0 = perfectly upright
+            if best is None or uprightness > best[2]:
+                shapes = {c.category_name: c.score for c in result.face_blendshapes[0]}
+                best = (shapes, rot, uprightness)
+    if best is None or best[2] < 0.8:
         return None, None
     return best[0], best[1]
 
