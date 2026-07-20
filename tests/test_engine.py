@@ -12,8 +12,9 @@ from tracker.core import CHANNEL_ORDER, Engine
 BOOTSTRAP = Path(__file__).resolve().parent.parent / "calibration" / "nate-v1.json"
 
 
-def make_engine() -> Engine:
-    return Engine.from_calibration(BOOTSTRAP)
+def make_engine(warmup=0.0) -> Engine:
+    from tracker.core import CONFIG
+    return Engine.from_calibration(BOOTSTRAP, {**CONFIG, "warmup_s": warmup})
 
 
 def shapes_for(brow=0.0, jaw=0.0, squint=0.0, browdown=0.0) -> dict:
@@ -102,26 +103,15 @@ def test_release_ramps_down_not_snap():
     e = make_engine()
     t = 0.0
     _, t = feed(e, shapes_for(brow=0.72), t, 1.0)
-    _, t = feed(e, shapes_for(squint=0.7, browdown=0.5), t, 1.0)  # latch ott at 1.0
-    # apex collapse: ~250ms filter decay + 150ms confirm, then 400ms drain -
-    # probe mid-drain at 0.55s
-    out, t = feed(e, shapes_for(), t, 0.55)
-    assert 0.15 < out["ott_brow"] < 0.85, f"should be mid-drain: {out}"
-    out, t = feed(e, shapes_for(), t, 1.0)  # ramp completes
-    assert out["ott_brow"] < 0.05 and e.max_engaged_stage == 0, out
-    print("✓ release ramps down instead of snapping")
-
-def test_blink_does_not_block_release():
-    e = make_engine()
-    t = 0.0
-    _, t = feed(e, shapes_for(brow=0.72), t, 1.0)
     _, t = feed(e, shapes_for(squint=0.7, browdown=0.5), t, 1.0)
-    _, t = feed(e, shapes_for(), t, 0.5)                 # relaxing...
-    _, t = feed(e, shapes_for(squint=0.9), t, 0.1)       # blink spike (100ms)
-    out, t = feed(e, shapes_for(), t, 1.5)               # keep relaxing
-    assert e.max_engaged_stage == 0, f"blink blocked release: {e.max_engaged_stage}"
-    assert out["ott_brow"] < 0.05, out
-    print("✓ blink does not block release")
+    vals = []
+    for i in range(45):  # 1.5s of release at 30fps
+        out = e.update(shapes_for(), t + i / 30)
+        vals.append(out["ott_brow"])
+    mids = [v for v in vals if 0.1 < v < 0.9]
+    assert len(mids) >= 3, f"snapped instead of gliding: {vals[:12]}"
+    assert vals[-1] < 0.05, vals[-1]
+    print("✓ release glides down instead of snapping")
 
 
 def test_sustained_reengage_cancels_release():
@@ -218,6 +208,48 @@ def test_blink_dip_does_not_apex_release():
     assert out["phase_squint"] > 0.8, out
     print("✓ blink dip does not apex-release")
 
+def test_warmup_blocks_phantom_startup_phrase():
+    """Stale floor + residual rest face read 0.35+ at launch and cascade-
+    filled a phantom phrase. Warmup blocks engagement while floors settle."""
+    e = make_engine(warmup=2.5)
+    t = 0.0
+    out, t = feed(e, shapes_for(browdown=0.31), t, 2.4)  # drifted rest face
+    assert e.max_engaged_stage == 0, f"phantom phrase: {e.max_engaged_stage}"
+    assert out["ott_brow"] < 0.05, out
+    print("✓ warmup blocks phantom startup phrase")
+
+def test_release_synchronized_no_stagger():
+    """All channels must move down TOGETHER the moment the face releases -
+    no filth-first-then-the-others stagger."""
+    e = make_engine()
+    t = 0.0
+    _, t = feed(e, shapes_for(squint=0.7, browdown=0.5), t, 3.0)  # bass face
+    started_moving_gap = None
+    filth_fall_frame = None
+    for i in range(45):
+        out = e.update(shapes_for(), t + i / 30)
+        assert abs(out["ott_brow"] - out["drive_mouth"]) < 0.02  # in lockstep
+        if filth_fall_frame is None and out["filth_disgust"] < 0.5:
+            filth_fall_frame = i
+        if started_moving_gap is None and filth_fall_frame is not None \
+                and out["ott_brow"] < 0.97:
+            started_moving_gap = i - filth_fall_frame
+    assert started_moving_gap is not None and started_moving_gap <= 3, \
+        f"latched channels lagged {started_moving_gap} frames behind filth"
+    print("✓ release is synchronized (no stagger)")
+
+def test_blink_does_not_block_release():
+    e = make_engine()
+    t = 0.0
+    _, t = feed(e, shapes_for(brow=0.72), t, 1.0)
+    _, t = feed(e, shapes_for(squint=0.7, browdown=0.5), t, 1.0)
+    _, t = feed(e, shapes_for(), t, 0.5)                 # relaxing...
+    _, t = feed(e, shapes_for(squint=0.9), t, 0.1)       # blink spike (100ms)
+    out, t = feed(e, shapes_for(), t, 1.5)               # keep relaxing
+    assert e.max_engaged_stage == 0, f"blink blocked release: {e.max_engaged_stage}"
+    assert out["ott_brow"] < 0.05, out
+    print("✓ blink does not block release")
+
 
 if __name__ == "__main__":
     test_normalization_and_directionality()
@@ -236,4 +268,6 @@ if __name__ == "__main__":
     test_post_hold_residual_tension_releases()
     test_apex_collapse_releases_fast()
     test_blink_dip_does_not_apex_release()
+    test_warmup_blocks_phantom_startup_phrase()
+    test_release_synchronized_no_stagger()
     print("all passed")

@@ -49,6 +49,13 @@ CONFIG = {
                             # gesture; drain everything immediately (no
                             # neutral wait - kills the release stall)
     "apex_ms": 150,         # sustained collapse (blinks are ~100ms)
+    "warmup_s": 2.5,        # no engagement right after launch - floors need a
+                            # beat to settle onto the actual resting face
+                            # (stale floor read 0.35 at rest -> phantom phrase)
+    "release_follow": 0.5,  # once the frontier falls below this fraction of
+                            # its peak, latched channels follow it down
+                            # proportionally - all four reach zero the same
+                            # instant the face does (synchronized release)
     "gamma": {            # per-channel response curve (1.0 = linear)
         "ott_brow": 1.0,
         "drive_mouth": 1.0,
@@ -131,6 +138,9 @@ class Engine:
     apex_min_peak: float = 0.6
     apex_ms: float = 150.0
     apex_since: float | None = None
+    warmup_s: float = 2.5
+    started_at: float | None = None
+    release_follow: float = 0.5
     max_engaged_stage: int = 0  # highest stage engaged this phrase (1-based)
     neutral_since: float | None = None
     above_since: float | None = None
@@ -163,11 +173,16 @@ class Engine:
                    static_band=config.get("static_band", 0.08),
                    apex_release=config.get("apex_release", 0.25),
                    apex_min_peak=config.get("apex_min_peak", 0.6),
-                   apex_ms=config.get("apex_ms", 150.0))
+                   apex_ms=config.get("apex_ms", 150.0),
+                   warmup_s=config.get("warmup_s", 2.5),
+                   release_follow=config.get("release_follow", 0.5))
 
     def update(self, shapes: dict[str, float], t: float) -> dict[str, float]:
         dt = (t - self.t_prev) if self.t_prev is not None else 0.0
         self.t_prev = t
+        if self.started_at is None:
+            self.started_at = t
+        in_warmup = (t - self.started_at) < self.warmup_s
         for ch in self.channels:
             raw = sum(shapes.get(m, 0.0) for m in ch.members) / len(ch.members)
             span = max(ch.peak - ch.floor, 1e-6)
@@ -177,7 +192,7 @@ class Engine:
             # Never mid-expression: a brow raise drives browDown raw to 0,
             # which is expression, not baseline drift.
             if (self.max_engaged_stage == 0 and dt > 0
-                    and abs(raw - ch.floor_track) < 0.3 * span):
+                    and abs(raw - ch.floor_track) < 0.45 * span):
                 rate = 0.1 * span * dt
                 ch.floor_track += max(-rate, min(rate, raw - ch.floor_track))
             ch.floor_track = min(max(ch.floor_track, 0.0),
@@ -193,7 +208,8 @@ class Engine:
             ch.win_hi = max(ch.live, ch.win_hi - decay)
 
         for stage, ch in enumerate(self.channels, start=1):
-            if ch.live >= self.engage and stage > self.max_engaged_stage:
+            if (not in_warmup and ch.live >= self.engage
+                    and stage > self.max_engaged_stage):
                 self.max_engaged_stage = stage
 
         # Apex collapse: the frontier stage falling hard IS the release
@@ -277,9 +293,17 @@ class Engine:
                 self.max_engaged_stage = 0
 
         out = {}
+        frontier = self.max_engaged_stage
+        ratio = 1.0
+        if frontier > 0:
+            fch = self.channels[frontier - 1]
+            denom = max(fch.phrase_peak * self.release_follow, 1e-6)
+            ratio = min(fch.live / denom, 1.0)
         for stage, ch in enumerate(self.channels, start=1):
-            latched = stage < self.max_engaged_stage
-            out[ch.name] = ch.phrase_peak if latched else ch.live
+            if stage < frontier:
+                out[ch.name] = ch.phrase_peak * ratio
+            else:
+                out[ch.name] = ch.live
         return out
 
     def latched_channels(self) -> set[str]:
