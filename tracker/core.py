@@ -27,8 +27,10 @@ CONFIG = {
     "release_ms": 350,    # sustained neutral before latches clear
     "peak_headroom": 0.90,  # full scale at 90% of calibrated max - the true
                             # max is hard to reproduce mid-performance
-    "cascade_ms": 400,      # reaching a stage ramps all lower stages to 1.0
-                            # (jump straight to bass face = everything fills)
+    "cascade_ms": 400,      # ramp time for cascade-fill and release drain
+    "cascade_from_stage": 4,  # ONLY the full bass face fills lower stages to
+                              # 1.0; middle stages ratchet real peaks (mouth
+                              # open must not drag OTT up on its own)
     "cancel_ms": 150,       # re-engagement must sustain this long to cancel a
                             # release - blinks (~100ms) spike the squint channel
                             # and must not reset the neutral clock
@@ -103,6 +105,7 @@ class Engine:
     release: float
     release_ms: float
     cascade_ms: float = 150.0
+    cascade_from_stage: int = 4
     cancel_ms: float = 150.0
     stuck_ms: float = 1500.0
     max_engaged_stage: int = 0  # highest stage engaged this phrase (1-based)
@@ -129,6 +132,7 @@ class Engine:
         return cls(channels=chans, engage=config["engage"],
                    release=config["release"], release_ms=config["release_ms"],
                    cascade_ms=config.get("cascade_ms", 150.0),
+                   cascade_from_stage=config.get("cascade_from_stage", 4),
                    cancel_ms=config.get("cancel_ms", 150.0),
                    stuck_ms=config.get("stuck_ms", 1500.0))
 
@@ -158,10 +162,11 @@ class Engine:
             if ch.live >= self.engage and stage > self.max_engaged_stage:
                 self.max_engaged_stage = stage
 
-        # Cascade-fill: reaching a stage implies every lower stage completes.
-        # Jump straight to bass face -> OTT/drive/squint ramp to 1.0 in
-        # cascade_ms instead of being skipped.
-        if self.max_engaged_stage > 1 and dt > 0 and not self.releasing:
+        # Cascade-fill: ONLY the full bass face implies everything below it.
+        # Jump straight to bass face -> OTT/drive/squint ramp to 1.0. Middle
+        # stages never fill lower ones (mouth open must not drag OTT up).
+        if (self.max_engaged_stage >= self.cascade_from_stage and dt > 0
+                and not self.releasing):
             step = dt / (self.cascade_ms / 1000.0)
             for stage, ch in enumerate(self.channels, start=1):
                 if stage < self.max_engaged_stage and ch.phrase_peak < 1.0:

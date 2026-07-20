@@ -155,6 +155,17 @@ def test_held_frontier_not_rebaselined():
     assert out["phase_squint"] > 0.8, out
     print("✓ held frontier is not rebaselined")
 
+def test_mouth_alone_does_not_fill_brow():
+    e = make_engine()
+    t = 0.0
+    _, t = feed(e, shapes_for(jaw=0.45), t, 1.5)  # mouth only, brows never up
+    out, _ = feed(e, shapes_for(jaw=0.45), t, 0.1)
+    assert out["ott_brow"] < 0.1, f"mouth must not drag OTT up: {out}"
+    # brows still controllable upward mid-phrase
+    out, t = feed(e, shapes_for(brow=0.72, jaw=0.45), t + 0.1, 1.0)
+    assert out["ott_brow"] > 0.9, out
+    print("✓ mouth alone does not fill brow; brow still rises mid-phrase")
+
 
 if __name__ == "__main__":
     test_normalization_and_directionality()
@@ -168,4 +179,5 @@ if __name__ == "__main__":
     test_sustained_reengage_cancels_release()
     test_dead_zone_drift_unsticks()
     test_held_frontier_not_rebaselined()
+    test_mouth_alone_does_not_fill_brow()
     print("all passed")
