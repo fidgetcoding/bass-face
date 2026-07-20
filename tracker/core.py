@@ -375,7 +375,16 @@ def main() -> None:
     ap.add_argument("--no-preview", action="store_true", help="terminal meters only")
     ap.add_argument("--recalibrate", action="store_true",
                     help="redo the guided calibration before tracking")
+    ap.add_argument("--debug", action="store_true",
+                    help="log per-frame engine state to debug.log")
     args = ap.parse_args()
+    debug_f = open(ROOT / "debug.log", "w") if args.debug else None
+    if debug_f:
+        cols = ["t", "eng", "rel", "neu", "stuck", "static"]
+        for n in CHANNEL_ORDER:
+            cols += [f"{n}.raw", f"{n}.floor", f"{n}.live", f"{n}.peak"]
+        debug_f.write(",".join(cols) + "\n")
+        print(f"debug log: {ROOT / 'debug.log'}", file=sys.stderr)
     outputs = open_outputs(midi=not args.no_midi, osc=not args.no_osc)
 
     opts = vision.FaceLandmarkerOptions(
@@ -486,6 +495,18 @@ def main() -> None:
             for o in outputs:
                 o.send(sendable)
 
+            if debug_f:
+                row = [f"{t - t0:.2f}", str(engine.max_engaged_stage),
+                       "1" if engine.releasing else "0",
+                       "1" if engine.neutral_since is not None else "0",
+                       "1" if engine.stuck_since is not None else "0",
+                       "1" if engine.static_since is not None else "0"]
+                for ch in engine.channels:
+                    row += [f"{ch.last_raw:.3f}",
+                            f"{ch.floor_track if ch.floor_track is not None else -1:.3f}",
+                            f"{ch.live:.3f}", f"{ch.phrase_peak:.3f}"]
+                debug_f.write(",".join(row) + "\n")
+
             if not args.no_preview:
                 disp = cv2.flip(frame, 1)
                 h, w = disp.shape[:2]
@@ -548,6 +569,8 @@ def main() -> None:
         cv2.destroyAllWindows()
         for o in outputs:
             o.close()
+        if debug_f:
+            debug_f.close()
 
 
 if __name__ == "__main__":

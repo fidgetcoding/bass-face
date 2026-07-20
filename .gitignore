@@ -4,3 +4,4 @@ __pycache__/
 .DS_Store
 calibration/camera.json
 calibration/profile.json
+debug.log
