@@ -103,9 +103,9 @@ def test_release_ramps_down_not_snap():
     t = 0.0
     _, t = feed(e, shapes_for(brow=0.72), t, 1.0)
     _, t = feed(e, shapes_for(squint=0.7, browdown=0.5), t, 1.0)  # latch ott at 1.0
-    # smoothing needs ~330ms to reach neutral threshold, then 350ms confirm,
-    # then the 400ms drain starts: probe mid-drain at 0.9s
-    out, t = feed(e, shapes_for(), t, 0.9)
+    # apex collapse: ~250ms filter decay + 150ms confirm, then 400ms drain -
+    # probe mid-drain at 0.55s
+    out, t = feed(e, shapes_for(), t, 0.55)
     assert 0.15 < out["ott_brow"] < 0.85, f"should be mid-drain: {out}"
     out, t = feed(e, shapes_for(), t, 1.0)  # ramp completes
     assert out["ott_brow"] < 0.05 and e.max_engaged_stage == 0, out
@@ -195,6 +195,29 @@ def test_post_hold_residual_tension_releases():
     assert out["phase_squint"] < 0.3, out
     print("✓ post-hold residual tension releases")
 
+def test_apex_collapse_releases_fast():
+    """Releasing the bass face must drain ALL channels in under ~1.2s -
+    no stall waiting for neutral confirmation."""
+    e = make_engine()
+    t = 0.0
+    _, t = feed(e, shapes_for(squint=0.7, browdown=0.5), t, 3.0)  # bass face
+    out, t = feed(e, shapes_for(), t, 1.2)  # release the scrunch
+    assert out["ott_brow"] < 0.15, f"stall: {out}"
+    assert out["phase_squint"] < 0.15, f"stall: {out}"
+    assert e.max_engaged_stage == 0 or e.releasing, "should be draining/done"
+    print("✓ apex collapse releases fast (no stall)")
+
+
+def test_blink_dip_does_not_apex_release():
+    e = make_engine()
+    t = 0.0
+    _, t = feed(e, shapes_for(squint=0.7), t, 2.0)   # stage-3 frontier hold
+    _, t = feed(e, shapes_for(squint=0.05), t, 0.1)  # 100ms blink-like dip
+    out, t = feed(e, shapes_for(squint=0.7), t, 1.0)
+    assert not e.releasing and e.max_engaged_stage >= 3
+    assert out["phase_squint"] > 0.8, out
+    print("✓ blink dip does not apex-release")
+
 
 if __name__ == "__main__":
     test_normalization_and_directionality()
@@ -211,4 +234,6 @@ if __name__ == "__main__":
     test_mouth_alone_does_not_fill_brow()
     test_far_drift_static_escape()
     test_post_hold_residual_tension_releases()
+    test_apex_collapse_releases_fast()
+    test_blink_dip_does_not_apex_release()
     print("all passed")

@@ -44,6 +44,11 @@ CONFIG = {
                             # high this long = at rest with badly drifted floor
                             # (beyond the learn band); rebaseline and release
     "static_band": 0.08,    # max live movement that still counts as motionless
+    "apex_release": 0.25,   # frontier stage falling below this...
+    "apex_min_peak": 0.6,   # ...after peaking above this = the come-down
+                            # gesture; drain everything immediately (no
+                            # neutral wait - kills the release stall)
+    "apex_ms": 150,         # sustained collapse (blinks are ~100ms)
     "gamma": {            # per-channel response curve (1.0 = linear)
         "ott_brow": 1.0,
         "drive_mouth": 1.0,
@@ -122,6 +127,10 @@ class Engine:
     static_ms: float = 1500.0
     static_band: float = 0.08
     static_since: float | None = None
+    apex_release: float = 0.25
+    apex_min_peak: float = 0.6
+    apex_ms: float = 150.0
+    apex_since: float | None = None
     max_engaged_stage: int = 0  # highest stage engaged this phrase (1-based)
     neutral_since: float | None = None
     above_since: float | None = None
@@ -151,7 +160,10 @@ class Engine:
                    stuck_ms=config.get("stuck_ms", 1200.0),
                    stuck_ceiling=config.get("stuck_ceiling", 0.6),
                    static_ms=config.get("static_ms", 1500.0),
-                   static_band=config.get("static_band", 0.08))
+                   static_band=config.get("static_band", 0.08),
+                   apex_release=config.get("apex_release", 0.25),
+                   apex_min_peak=config.get("apex_min_peak", 0.6),
+                   apex_ms=config.get("apex_ms", 150.0))
 
     def update(self, shapes: dict[str, float], t: float) -> dict[str, float]:
         dt = (t - self.t_prev) if self.t_prev is not None else 0.0
@@ -174,7 +186,8 @@ class Engine:
             ch.raw_lo = min(raw, ch.raw_lo + 0.25 * span * dt)
             norm = min(max((raw - ch.floor_track) / span, 0.0), 1.0) ** ch.gamma
             ch.live = ch.filt(norm, t)
-            ch.phrase_peak = max(ch.phrase_peak, ch.live)
+            if not self.releasing:  # a draining phrase is over - don't refill
+                ch.phrase_peak = max(ch.phrase_peak, ch.live)
             decay = 0.6 * dt
             ch.win_lo = min(ch.live, ch.win_lo + decay)
             ch.win_hi = max(ch.live, ch.win_hi - decay)
@@ -182,6 +195,19 @@ class Engine:
         for stage, ch in enumerate(self.channels, start=1):
             if ch.live >= self.engage and stage > self.max_engaged_stage:
                 self.max_engaged_stage = stage
+
+        # Apex collapse: the frontier stage falling hard IS the release
+        # gesture - drain immediately instead of waiting for full neutral.
+        if self.max_engaged_stage > 0 and not self.releasing:
+            fch = self.channels[self.max_engaged_stage - 1]
+            if fch.phrase_peak > self.apex_min_peak and fch.live < self.apex_release:
+                if self.apex_since is None:
+                    self.apex_since = t
+                elif (t - self.apex_since) * 1000 >= self.apex_ms:
+                    self.releasing = True
+                    self.apex_since = None
+            else:
+                self.apex_since = None
 
         # Cascade-fill: ONLY the full bass face implies everything below it.
         # Jump straight to bass face -> OTT/drive/squint ramp to 1.0. Middle
@@ -227,14 +253,18 @@ class Engine:
             elif (t - self.neutral_since) * 1000 >= self.release_ms:
                 self.releasing = True
         else:
-            # Debounce: blinks spike the squint channel for ~100ms and must
-            # not reset the neutral clock. Only a SUSTAINED re-engagement
-            # cancels the release (catch-the-fall).
-            if self.above_since is None:
-                self.above_since = t
-            if (t - self.above_since) * 1000 >= self.cancel_ms:
-                self.neutral_since = None
-                self.releasing = False
+            self.neutral_since = None
+            # Catch-the-fall requires REAL re-engagement (above engage,
+            # sustained past blink length). Residual tension between the
+            # neutral floor and engage must NOT cancel a running drain -
+            # that was the release stall.
+            if any(ch.live >= self.engage for ch in self.channels):
+                if self.above_since is None:
+                    self.above_since = t
+                elif (t - self.above_since) * 1000 >= self.cancel_ms:
+                    self.releasing = False
+            else:
+                self.above_since = None
 
         # Release ramp: latched channels drain to 0 at the cascade rate, so
         # the way down mirrors the way up instead of snapping.
