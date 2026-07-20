@@ -7,9 +7,10 @@
 - [x] T3: Virtual MIDI source "Bass Face" CC 20–23 (port verified in CoreMIDI; knob-moves-in-Live check = Checkpoint B)
 - [x] T4: OSC out 127.0.0.1:7400 (roundtrip test passed)
 - [x] Checkpoint B: PASSED 2026-07-19 — OTT knob tracks eyebrows via CC 20, solo-key mapping flow
-- [ ] T5: M4L mapper device (BassFace.maxpat → .amxd, 4 map slots)
-- [ ] Checkpoint C: end-to-end via M4L, latency feel test
+- [x] T5: PASSED 2026-07-19 — BassFace.amxd saved to User Library (v1 = 4 face lanes; Map slots = v1.1)
+- [x] Checkpoint C: PASSED 2026-07-19 — dials track face over OSC, automation lanes record
 - [ ] T6: Feel pass (curves, ratchet release, smoothing) — live with Nate
 - [ ] T7: Occlusion resilience (sunglasses detection + fallback map) — sunglasses test
 - [ ] Ship phase (separate session): .app bundle, Patreon drop, demo capture
 - [ ] v2: secret settings — spoon/key bump (LFO chaos) + hands-on-head (reverb freeze); needs HandLandmarker
+- [ ] BUG (Nate priority): release sticks — detection-side per Nate; add --debug readout and trace real numbers
