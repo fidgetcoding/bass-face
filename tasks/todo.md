@@ -13,7 +13,8 @@
 - [ ] T7: Occlusion resilience (sunglasses detection + fallback map) — sunglasses test
 - [ ] Ship phase (separate session): .app bundle, Patreon drop, demo capture
 - [x] v1.1 VERIFIED 2026-07-19 — all 4 Map slots drive FACE macros (BROW OTT / MOUTH DRIVE / SQUINT PHASE / FACE FILTH) via live.remote~
-- [ ] v1.2 polish: presentation mode (knobs-only device face)
+- [x] v1.3 VERIFIED 2026-07-19 — name-based auto-wire (js walks track, finds FACE macros, binds live.remote~); zero-click install
+- [ ] v1.4 polish: presentation mode (knobs-only device face)
 - [ ] v2: secret settings — spoon/key bump (LFO chaos) + hands-on-head (reverb freeze); needs HandLandmarker
 - [ ] BUG (Nate priority): release sticks — detection-side per Nate; add --debug readout and trace real numbers
 - [ ] v1.2: device auto-launches tracker via Node for Max (pairs with Ship .app bundle)
