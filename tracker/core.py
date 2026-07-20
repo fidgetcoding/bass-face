@@ -52,6 +52,8 @@ CONFIG = {
     "warmup_s": 2.5,        # no engagement right after launch - floors need a
                             # beat to settle onto the actual resting face
                             # (stale floor read 0.35 at rest -> phantom phrase)
+    "still_learn_s": 2.0,   # upward floor learning needs this much continuous
+                            # stillness - riding plateaus must not count as drift
     "release_follow": 0.5,  # once the frontier falls below this fraction of
                             # its peak, latched channels follow it down
                             # proportionally - all four reach zero the same
@@ -111,6 +113,7 @@ class Channel:
     raw_lo: float = 0.0    # leaky min of raw - honest rebaseline target
     win_lo: float = 0.0    # leaky min/max of live - recent-motion window
     win_hi: float = 0.0
+    still_since: float | None = None
 
 
 @dataclass
@@ -141,6 +144,7 @@ class Engine:
     warmup_s: float = 2.5
     started_at: float | None = None
     release_follow: float = 0.5
+    still_learn_s: float = 2.0
     max_engaged_stage: int = 0  # highest stage engaged this phrase (1-based)
     neutral_since: float | None = None
     above_since: float | None = None
@@ -175,7 +179,8 @@ class Engine:
                    apex_min_peak=config.get("apex_min_peak", 0.6),
                    apex_ms=config.get("apex_ms", 150.0),
                    warmup_s=config.get("warmup_s", 2.5),
-                   release_follow=config.get("release_follow", 0.5))
+                   release_follow=config.get("release_follow", 0.5),
+                   still_learn_s=config.get("still_learn_s", 2.0))
 
     def update(self, shapes: dict[str, float], t: float) -> dict[str, float]:
         dt = (t - self.t_prev) if self.t_prev is not None else 0.0
@@ -188,11 +193,17 @@ class Engine:
             span = max(ch.peak - ch.floor, 1e-6)
             if ch.floor_track is None:
                 ch.floor_track = ch.floor
-            # Floors learn ONLY at rest, near the known floor, with slow slew.
-            # Never mid-expression: a brow raise drives browDown raw to 0,
-            # which is expression, not baseline drift.
-            if (self.max_engaged_stage == 0 and dt > 0
-                    and abs(raw - ch.floor_track) < 0.45 * span):
+            # Floor learning. Warmup: whatever the face is at launch IS
+            # rest - learn it fast. After: downward correction is immediate
+            # (in band); upward learning ONLY when the channel reads truly
+            # quiet (below release) so expressive riding is never eaten.
+            # Drift that idles above release is handled by the escapes.
+            if in_warmup and dt > 0:
+                rate = 0.5 * span * dt
+                ch.floor_track += max(-rate, min(rate, raw - ch.floor_track))
+            elif (self.max_engaged_stage == 0 and dt > 0
+                    and abs(raw - ch.floor_track) < 0.45 * span
+                    and (raw < ch.floor_track or ch.live < self.release)):
                 rate = 0.1 * span * dt
                 ch.floor_track += max(-rate, min(rate, raw - ch.floor_track))
             ch.floor_track = min(max(ch.floor_track, 0.0),

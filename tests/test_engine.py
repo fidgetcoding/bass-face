@@ -250,6 +250,22 @@ def test_blink_does_not_block_release():
     assert out["ott_brow"] < 0.05, out
     print("✓ blink does not block release")
 
+def test_solo_brow_riding_not_eaten_by_floor():
+    """Sub-engage expressive brow moves must keep full response - the floor
+    must not chase a moving channel (only static drift learns)."""
+    e = make_engine()
+    t = 0.0
+    outs = []
+    for i in range(240):  # 8s of slow brow riding below engage
+        b = 0.10 if (i // 15) % 2 == 0 else 0.24
+        out = e.update(shapes_for(brow=b), t + i / 30)
+        outs.append(out["ott_brow"])
+    ch = e.channels[0]
+    assert ch.floor_track < ch.floor + 0.05, f"floor chased brow: {ch.floor_track}"
+    swing = max(outs[-60:]) - min(outs[-60:])
+    assert swing > 0.12, f"brow response collapsed: swing {swing:.3f}"
+    print("✓ solo brow riding keeps full response")
+
 
 if __name__ == "__main__":
     test_normalization_and_directionality()
@@ -270,4 +286,5 @@ if __name__ == "__main__":
     test_blink_dip_does_not_apex_release()
     test_warmup_blocks_phantom_startup_phrase()
     test_release_synchronized_no_stagger()
+    test_solo_brow_riding_not_eaten_by_floor()
     print("all passed")
