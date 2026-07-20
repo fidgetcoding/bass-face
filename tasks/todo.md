@@ -17,5 +17,5 @@
 - [x] PERSISTENCE PROVEN 2026-07-19 — fresh set from template: macros follow face with zero setup
 - [ ] v1.4 polish: presentation mode (knobs-only device face)
 - [ ] v2: secret settings — spoon/key bump (LFO chaos) + hands-on-head (reverb freeze); needs HandLandmarker
-- [ ] BUG (Nate priority): release sticks — detection-side per Nate; add --debug readout and trace real numbers
+- [x] BUG FIXED 2026-07-19 late: release stall — root cause was staged release design (filth led, latched waited on timers); fixed via apex-collapse + frontier-follow sync + warmup + quiet-gated floor learning; verified smooth live
 - [ ] v1.2: device auto-launches tracker via Node for Max (pairs with Ship .app bundle)
