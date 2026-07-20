@@ -115,7 +115,7 @@ for i, (chan, short) in enumerate(zip(CHANNELS, SHORT)):
               outlettype=["bang", ""])
     pre = box("newobj", x, 355, 70, 22, "prepend id", numin=1, numout=1,
               outlettype=[""])
-    trgC = box("newobj", x, 385, 60, 22, "t b b l", numin=1, numout=3,
+    trgC = box("newobj", x, 385, 60, 22, "t b b a", numin=1, numout=3,
                outlettype=["bang", "bang", ""])
     mgp = box("message", x + 70, 415, 55, 22, "getpath", numin=2, numout=1,
               outlettype=[""])
@@ -138,7 +138,7 @@ for i, (chan, short) in enumerate(zip(CHANNELS, SHORT)):
                outlettype=["", ""])
     pre2 = box("newobj", x, 655, 70, 22, "prepend id", numin=1, numout=1,
                outlettype=[""])
-    trgR = box("newobj", x, 685, 60, 22, "t b l l", numin=1, numout=3,
+    trgR = box("newobj", x, 685, 60, 22, "t b a a", numin=1, numout=3,
                outlettype=["bang", "", ""])
     mgmm = box("message", x + 70, 715, 100, 22, "get min, get max",
                numin=2, numout=1, outlettype=[""])

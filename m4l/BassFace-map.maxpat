@@ -506,7 +506,7 @@
       60.0,
       22.0
      ],
-     "text": "t b b l",
+     "text": "t b b a",
      "outlettype": [
       "bang",
       "bang",
@@ -715,7 +715,7 @@
       60.0,
       22.0
      ],
-     "text": "t b l l",
+     "text": "t b a a",
      "outlettype": [
       "bang",
       "",
@@ -1094,7 +1094,7 @@
       60.0,
       22.0
      ],
-     "text": "t b b l",
+     "text": "t b b a",
      "outlettype": [
       "bang",
       "bang",
@@ -1303,7 +1303,7 @@
       60.0,
       22.0
      ],
-     "text": "t b l l",
+     "text": "t b a a",
      "outlettype": [
       "bang",
       "",
@@ -1682,7 +1682,7 @@
       60.0,
       22.0
      ],
-     "text": "t b b l",
+     "text": "t b b a",
      "outlettype": [
       "bang",
       "bang",
@@ -1891,7 +1891,7 @@
       60.0,
       22.0
      ],
-     "text": "t b l l",
+     "text": "t b a a",
      "outlettype": [
       "bang",
       "",
@@ -2270,7 +2270,7 @@
       60.0,
       22.0
      ],
-     "text": "t b b l",
+     "text": "t b b a",
      "outlettype": [
       "bang",
       "bang",
@@ -2479,7 +2479,7 @@
       60.0,
       22.0
      ],
-     "text": "t b l l",
+     "text": "t b a a",
      "outlettype": [
       "bang",
       "",
