@@ -14,3 +14,4 @@
 - [ ] Ship phase (separate session): .app bundle, Patreon drop, demo capture
 - [ ] v2: secret settings — spoon/key bump (LFO chaos) + hands-on-head (reverb freeze); needs HandLandmarker
 - [ ] BUG (Nate priority): release sticks — detection-side per Nate; add --debug readout and trace real numbers
+- [ ] v1.2: device auto-launches tracker via Node for Max (pairs with Ship .app bundle)
