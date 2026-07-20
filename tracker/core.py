@@ -449,6 +449,9 @@ def main() -> None:
                     help="redo the guided calibration before tracking")
     ap.add_argument("--debug", action="store_true",
                     help="log per-frame engine state to debug.log")
+    ap.add_argument("--autostart", action="store_true",
+                    help="launched by the M4L device: skip the camera-confirm "
+                         "gate, trust the built-in pick")
     args = ap.parse_args()
     debug_f = open(ROOT / "debug.log", "w") if args.debug else None
     if debug_f:
@@ -496,7 +499,7 @@ def main() -> None:
         return idx, new
 
     # Preflight: user confirms the face camera BEFORE calibration/tracking.
-    if not args.no_preview:
+    if not args.no_preview and not args.autostart:
         while True:
             ok, frame = cap.read()
             if not ok:

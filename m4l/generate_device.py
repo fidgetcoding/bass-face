@@ -50,8 +50,8 @@ def wire(src, out, dst, inl):
 
 # ---- shared: OSC in + selected-parameter observer ----
 box("comment", 30, 10, 700, 20,
-    "BASS FACE v1.4 - auto-wires to macros named BROW OTT / MOUTH DRIVE / "
-    "SQUINT PHASE / FACE FILTH on this track. Run tracker/core.py.")
+    "BASS FACE v1.5 - auto-wires to macros + auto-launches the camera "
+    "tracker (Node for Max). CAM toggle stops/starts it.")
 box("comment", 0, 0, 90, 18, "BASS FACE",
     extra={"presentation": 1, "presentation_rect": [8.0, 4.0, 90.0, 18.0],
            "fontface": 1})
@@ -82,6 +82,36 @@ rt4 = box("newobj", 700, 104, 90, 22, "route 0 1 2 3", numin=1, numout=5,
 wire(ltd, 0, mjs, 0)
 wire(rescan, 0, mjs, 0)
 wire(mjs, 0, rt4, 0)
+
+# ---- camera auto-launcher (Node for Max) ----
+nodejs = box("newobj", 700, 140, 200, 22,
+             "node.script bassface_launcher.js @autostart 1 @watch 0",
+             numin=1, numout=2, outlettype=["", ""])
+camtog = box("toggle", 910, 140, 24, 24, numin=1, numout=1,
+             outlettype=["int"],
+             extra={"presentation": 1,
+                    "presentation_rect": [258.0, 44.0, 20.0, 20.0]})
+box("comment", 910, 168, 40, 20, "CAM",
+    extra={"presentation": 1,
+           "presentation_rect": [244.0, 66.0, 48.0, 15.0], "fontsize": 9.0})
+camsel = box("newobj", 910, 196, 50, 22, "sel 1 0", numin=3, numout=3,
+             outlettype=["bang", "bang", ""])
+mlaunch = box("message", 880, 226, 55, 22, "launch", numin=2, numout=1,
+              outlettype=[""])
+mhalt = box("message", 945, 226, 40, 22, "halt", numin=2, numout=1,
+            outlettype=[""])
+rrun = box("newobj", 700, 172, 90, 22, "route running", numin=1, numout=2,
+           outlettype=["", ""])
+msett = box("message", 700, 202, 45, 22, "set $1", numin=2, numout=1,
+            outlettype=[""])
+wire(camtog, 0, camsel, 0)
+wire(camsel, 0, mlaunch, 0)
+wire(camsel, 1, mhalt, 0)
+wire(mlaunch, 0, nodejs, 0)
+wire(mhalt, 0, nodejs, 0)
+wire(nodejs, 0, rrun, 0)
+wire(rrun, 0, msett, 0)
+wire(msett, 0, camtog, 0)   # reflect actual state without re-triggering
 
 # ---- per-slot: unpack id/min/max -> remote, face -> scale -> remote ----
 for i, (chan, short) in enumerate(zip(CHANNELS, SHORT)):
