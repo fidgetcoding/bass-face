@@ -37,6 +37,10 @@ CONFIG = {
     "stuck_ms": 1500,       # latched + everything sub-engage this long = the
                             # resting floor drifted (hood, head pitch, light);
                             # re-zero floors so the phrase can release
+    "static_ms": 1500,      # latched + every channel motionless + nothing held
+                            # high this long = at rest with badly drifted floor
+                            # (beyond the learn band); rebaseline and release
+    "static_band": 0.08,    # max live movement that still counts as motionless
     "gamma": {            # per-channel response curve (1.0 = linear)
         "ott_brow": 1.0,
         "drive_mouth": 1.0,
@@ -89,6 +93,8 @@ class Channel:
     phrase_peak: float = 0.0  # running max since last neutral release
     floor_track: float | None = None  # drift-adaptive floor (starts at floor)
     last_raw: float = 0.0
+    win_lo: float = 0.0    # leaky min/max of live - recent-motion window
+    win_hi: float = 0.0
 
 
 @dataclass
@@ -108,6 +114,9 @@ class Engine:
     cascade_from_stage: int = 4
     cancel_ms: float = 150.0
     stuck_ms: float = 1500.0
+    static_ms: float = 1500.0
+    static_band: float = 0.08
+    static_since: float | None = None
     max_engaged_stage: int = 0  # highest stage engaged this phrase (1-based)
     neutral_since: float | None = None
     above_since: float | None = None
@@ -134,7 +143,9 @@ class Engine:
                    cascade_ms=config.get("cascade_ms", 150.0),
                    cascade_from_stage=config.get("cascade_from_stage", 4),
                    cancel_ms=config.get("cancel_ms", 150.0),
-                   stuck_ms=config.get("stuck_ms", 1500.0))
+                   stuck_ms=config.get("stuck_ms", 1500.0),
+                   static_ms=config.get("static_ms", 1500.0),
+                   static_band=config.get("static_band", 0.08))
 
     def update(self, shapes: dict[str, float], t: float) -> dict[str, float]:
         dt = (t - self.t_prev) if self.t_prev is not None else 0.0
@@ -152,11 +163,14 @@ class Engine:
                 rate = 0.1 * span * dt
                 ch.floor_track += max(-rate, min(rate, raw - ch.floor_track))
             ch.floor_track = min(max(ch.floor_track, 0.0),
-                                 ch.floor + 0.5 * span)
+                                 ch.floor + 0.8 * span)
             ch.last_raw = raw
             norm = min(max((raw - ch.floor_track) / span, 0.0), 1.0) ** ch.gamma
             ch.live = ch.filt(norm, t)
             ch.phrase_peak = max(ch.phrase_peak, ch.live)
+            decay = 0.6 * dt
+            ch.win_lo = min(ch.live, ch.win_lo + decay)
+            ch.win_hi = max(ch.live, ch.win_hi - decay)
 
         for stage, ch in enumerate(self.channels, start=1):
             if ch.live >= self.engage and stage > self.max_engaged_stage:
@@ -180,13 +194,24 @@ class Engine:
             if self.stuck_since is None:
                 self.stuck_since = t
             elif (t - self.stuck_since) * 1000 >= self.stuck_ms:
-                for ch in self.channels:
-                    span = max(ch.peak - ch.floor, 1e-6)
-                    ch.floor_track = min(max(ch.floor_track, ch.last_raw),
-                                         ch.floor + 0.5 * span)
+                self._rebaseline()
                 self.stuck_since = None
         else:
             self.stuck_since = None
+
+        # Second escape for drift beyond the learn band: latched + every
+        # channel motionless + nothing held high = at rest, floors are lying.
+        if (self.max_engaged_stage > 0 and not self.releasing
+                and all(ch.win_hi - ch.win_lo < self.static_band
+                        for ch in self.channels)
+                and all(ch.live < 0.85 for ch in self.channels)):
+            if self.static_since is None:
+                self.static_since = t
+            elif (t - self.static_since) * 1000 >= self.static_ms:
+                self._rebaseline()
+                self.static_since = None
+        else:
+            self.static_since = None
 
         if all(ch.live < self.release for ch in self.channels):
             self.above_since = None
@@ -229,6 +254,13 @@ class Engine:
         for ch in self.channels:
             ch.phrase_peak = 0.0
         self.max_engaged_stage = 0
+
+    def _rebaseline(self) -> None:
+        """Adopt current raws as floors (clamped) so a drifted rest releases."""
+        for ch in self.channels:
+            span = max(ch.peak - ch.floor, 1e-6)
+            ch.floor_track = min(max(ch.floor_track, ch.last_raw),
+                                 ch.floor + 0.8 * span)
 
 
 class ShakeDetector:
@@ -311,8 +343,9 @@ LABELS = {
 }
 
 
-def render(out: dict[str, float], latched: set[str], fps: float, infer_ms: float) -> str:
-    lines = ["BASS FACE  --  ctrl-c to quit", ""]
+def render(out: dict[str, float], latched: set[str], fps: float,
+           infer_ms: float, status: str = "") -> str:
+    lines = [f"BASS FACE  --  ctrl-c to quit   {status}", ""]
     for name in CHANNEL_ORDER:
         v = out[name]
         bar = "█" * round(v * 24)
@@ -501,7 +534,12 @@ def main() -> None:
             if frames % 10 == 0:
                 fps = 10 / max(t - getattr(main, "_t_fps", t0), 1e-6)
                 main._t_fps = t
-            sys.stdout.write(render(out, engine.latched_channels(), fps, infer_ms))
+            status = ""
+            if solo is not None:
+                status = (f"⚠️  SOLO {CHANNEL_ORDER[solo]} ONLY - other knobs "
+                          f"in Live are FROZEN - press 0 in video window")
+            sys.stdout.write(render(out, engine.latched_channels(), fps,
+                                    infer_ms, status))
             sys.stdout.flush()
     except KeyboardInterrupt:
         pass

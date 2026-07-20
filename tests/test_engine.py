@@ -166,6 +166,18 @@ def test_mouth_alone_does_not_fill_brow():
     assert out["ott_brow"] > 0.9, out
     print("✓ mouth alone does not fill brow; brow still rises mid-phrase")
 
+def test_far_drift_static_escape():
+    e = make_engine()
+    t = 0.0
+    _, t = feed(e, shapes_for(brow=0.72), t, 1.0)
+    _, t = feed(e, shapes_for(squint=0.7, browdown=0.5), t, 1.0)
+    # rest with filth floor badly drifted: norm ~0.5, beyond stuck (engage)
+    # escape and beyond the 0.3-span learn band
+    out, t = feed(e, shapes_for(browdown=0.31), t, 6.0)
+    assert e.max_engaged_stage == 0, f"far drift never released: {e.max_engaged_stage}"
+    assert out["ott_brow"] < 0.1, out
+    print("✓ far-drift static escape releases")
+
 
 if __name__ == "__main__":
     test_normalization_and_directionality()
@@ -180,4 +192,5 @@ if __name__ == "__main__":
     test_dead_zone_drift_unsticks()
     test_held_frontier_not_rebaselined()
     test_mouth_alone_does_not_fill_brow()
+    test_far_drift_static_escape()
     print("all passed")
