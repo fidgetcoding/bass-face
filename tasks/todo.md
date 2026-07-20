@@ -6,7 +6,7 @@
 - [x] Checkpoint A: PASSED 2026-07-19 — onboarding + sweeps + headroom + sounds verified on camera
 - [x] T3: Virtual MIDI source "Bass Face" CC 20–23 (port verified in CoreMIDI; knob-moves-in-Live check = Checkpoint B)
 - [x] T4: OSC out 127.0.0.1:7400 (roundtrip test passed)
-- [ ] Checkpoint B: face moves a knob in Ableton (MIDI path)
+- [x] Checkpoint B: PASSED 2026-07-19 — OTT knob tracks eyebrows via CC 20, solo-key mapping flow
 - [ ] T5: M4L mapper device (BassFace.maxpat → .amxd, 4 map slots)
 - [ ] Checkpoint C: end-to-end via M4L, latency feel test
 - [ ] T6: Feel pass (curves, ratchet release, smoothing) — live with Nate
