@@ -15,7 +15,7 @@
 - [x] v1.1 VERIFIED 2026-07-19 — all 4 Map slots drive FACE macros (BROW OTT / MOUTH DRIVE / SQUINT PHASE / FACE FILTH) via live.remote~
 - [x] v1.3 VERIFIED 2026-07-19 — name-based auto-wire; zero-click install
 - [x] PERSISTENCE PROVEN 2026-07-19 — fresh set from template: macros follow face with zero setup
-- [ ] v1.4 polish: presentation mode (knobs-only device face)
+- [x] v1.4 VERIFIED 2026-07-19 — presentation mode (clean BASS FACE device face); direct .amxd disk-write pipeline established (no more Max paste cycles)
 - [ ] v2: secret settings — spoon/key bump (LFO chaos) + hands-on-head (reverb freeze); needs HandLandmarker
 - [x] BUG FIXED 2026-07-19 late: release stall — root cause was staged release design (filth led, latched waited on timers); fixed via apex-collapse + frontier-follow sync + warmup + quiet-gated floor learning; verified smooth live
 - [ ] v1.2: device auto-launches tracker via Node for Max (pairs with Ship .app bundle)
