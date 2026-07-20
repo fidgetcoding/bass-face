@@ -50,8 +50,14 @@ def wire(src, out, dst, inl):
 
 # ---- shared: OSC in + selected-parameter observer ----
 box("comment", 30, 10, 700, 20,
-    "BASS FACE v1.3 - auto-wires to macros named BROW OTT / MOUTH DRIVE / "
+    "BASS FACE v1.4 - auto-wires to macros named BROW OTT / MOUTH DRIVE / "
     "SQUINT PHASE / FACE FILTH on this track. Run tracker/core.py.")
+box("comment", 0, 0, 90, 18, "BASS FACE",
+    extra={"presentation": 1, "presentation_rect": [8.0, 4.0, 90.0, 18.0],
+           "fontface": 1})
+box("comment", 0, 0, 150, 15, "face -> your rack",
+    extra={"presentation": 1, "presentation_rect": [8.0, 24.0, 150.0, 15.0],
+           "fontsize": 9.0})
 udp = box("newobj", 30, 40, 110, 22, "udpreceive 7400", numin=0, numout=1,
           outlettype=[""])
 route = box("newobj", 30, 72, 620, 22,
@@ -64,8 +70,13 @@ ltd = box("newobj", 700, 40, 100, 22, "live.thisdevice", numin=1, numout=3,
           outlettype=["bang", "", ""])
 mjs = box("newobj", 700, 72, 130, 22, "js bassface_map.js", numin=1, numout=1,
           outlettype=[""])
-rescan = box("button", 840, 40, 24, 24, numin=1, numout=1, outlettype=["bang"])
-box("comment", 866, 43, 50, 20, "rescan")
+rescan = box("button", 840, 40, 24, 24, numin=1, numout=1,
+             outlettype=["bang"],
+             extra={"presentation": 1,
+                    "presentation_rect": [258.0, 96.0, 20.0, 20.0]})
+box("comment", 866, 43, 50, 20, "rescan",
+    extra={"presentation": 1,
+           "presentation_rect": [240.0, 118.0, 56.0, 15.0], "fontsize": 9.0})
 rt4 = box("newobj", 700, 104, 90, 22, "route 0 1 2 3", numin=1, numout=5,
           outlettype=["", "", "", "", ""])
 wire(ltd, 0, mjs, 0)
@@ -84,6 +95,8 @@ for i, (chan, short) in enumerate(zip(CHANNELS, SHORT)):
               numout=1, outlettype=[""])
     lrm = box("newobj", x, 255, 90, 22, "live.remote~", numin=2, numout=0)
     dial = box("live.dial", x, 300, 48, 48, extra={
+        "presentation": 1,
+        "presentation_rect": [10.0 + i * 58, 48.0 + 0 * 1, 48.0, 60.0],
         "varname": chan, "parameter_enable": 1,
         "saved_attribute_attributes": {"valueof": {
             "parameter_longname": short, "parameter_shortname": short,
@@ -110,6 +123,7 @@ wire(plug, 1, plout, 1)
 
 doc = {"patcher": {
     "fileversion": 1,
+    "openinpresentation": 1,
     "appversion": {"major": 9, "minor": 0, "revision": 0,
                    "architecture": "x64", "modernui": 1},
     "classnamespace": "box",
