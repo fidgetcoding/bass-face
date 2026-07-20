@@ -178,6 +178,23 @@ def test_far_drift_static_escape():
     assert out["ott_brow"] < 0.1, out
     print("✓ far-drift static escape releases")
 
+def test_post_hold_residual_tension_releases():
+    """debug.log 2026-07-19: after a 20s bass face, residual tension keeps
+    channels fluttering 0.1-0.45 - old escapes never fired."""
+    e = make_engine()
+    t = 0.0
+    _, t = feed(e, shapes_for(squint=0.7, browdown=0.5), t, 8.0)  # long hold
+    # residual tension: flutter between values whose lives cross release/engage
+    out = None
+    for i in range(150):  # 5s of flutter at 30fps
+        bd = 0.24 if (i // 8) % 2 == 0 else 0.31
+        sq = 0.30 if (i // 6) % 2 == 0 else 0.34
+        out = e.update(shapes_for(squint=sq, browdown=bd), t + i / 30)
+    t += 5.0
+    assert e.max_engaged_stage == 0, f"post-hold flutter stuck: {e.max_engaged_stage}"
+    assert out["phase_squint"] < 0.3, out
+    print("✓ post-hold residual tension releases")
+
 
 if __name__ == "__main__":
     test_normalization_and_directionality()
@@ -193,4 +210,5 @@ if __name__ == "__main__":
     test_held_frontier_not_rebaselined()
     test_mouth_alone_does_not_fill_brow()
     test_far_drift_static_escape()
+    test_post_hold_residual_tension_releases()
     print("all passed")

@@ -34,9 +34,12 @@ CONFIG = {
     "cancel_ms": 150,       # re-engagement must sustain this long to cancel a
                             # release - blinks (~100ms) spike the squint channel
                             # and must not reset the neutral clock
-    "stuck_ms": 1500,       # latched + everything sub-engage this long = the
-                            # resting floor drifted (hood, head pitch, light);
-                            # re-zero floors so the phrase can release
+    "stuck_ms": 1200,       # latched + everything below stuck_ceiling this
+                            # long = resting with residual tension / drifted
+                            # floor; re-zero floors so the phrase can release
+    "stuck_ceiling": 0.6,   # post-long-hold residual tension flutters up to
+                            # ~0.45 (debug.log 2026-07-19); deliberate holds
+                            # run ~0.95+, so 0.6 separates them cleanly
     "static_ms": 1500,      # latched + every channel motionless + nothing held
                             # high this long = at rest with badly drifted floor
                             # (beyond the learn band); rebaseline and release
@@ -93,6 +96,7 @@ class Channel:
     phrase_peak: float = 0.0  # running max since last neutral release
     floor_track: float | None = None  # drift-adaptive floor (starts at floor)
     last_raw: float = 0.0
+    raw_lo: float = 0.0    # leaky min of raw - honest rebaseline target
     win_lo: float = 0.0    # leaky min/max of live - recent-motion window
     win_hi: float = 0.0
 
@@ -113,7 +117,8 @@ class Engine:
     cascade_ms: float = 150.0
     cascade_from_stage: int = 4
     cancel_ms: float = 150.0
-    stuck_ms: float = 1500.0
+    stuck_ms: float = 1200.0
+    stuck_ceiling: float = 0.6
     static_ms: float = 1500.0
     static_band: float = 0.08
     static_since: float | None = None
@@ -143,7 +148,8 @@ class Engine:
                    cascade_ms=config.get("cascade_ms", 150.0),
                    cascade_from_stage=config.get("cascade_from_stage", 4),
                    cancel_ms=config.get("cancel_ms", 150.0),
-                   stuck_ms=config.get("stuck_ms", 1500.0),
+                   stuck_ms=config.get("stuck_ms", 1200.0),
+                   stuck_ceiling=config.get("stuck_ceiling", 0.6),
                    static_ms=config.get("static_ms", 1500.0),
                    static_band=config.get("static_band", 0.08))
 
@@ -165,6 +171,7 @@ class Engine:
             ch.floor_track = min(max(ch.floor_track, 0.0),
                                  ch.floor + 0.8 * span)
             ch.last_raw = raw
+            ch.raw_lo = min(raw, ch.raw_lo + 0.25 * span * dt)
             norm = min(max((raw - ch.floor_track) / span, 0.0), 1.0) ** ch.gamma
             ch.live = ch.filt(norm, t)
             ch.phrase_peak = max(ch.phrase_peak, ch.live)
@@ -190,7 +197,7 @@ class Engine:
         # floor drifted (hood, head pitch, lighting) and parked a channel in
         # the release/engage dead zone. Re-zero floors; release then fires.
         if (self.max_engaged_stage > 0 and not self.releasing
-                and all(ch.live < self.engage for ch in self.channels)):
+                and all(ch.live < self.stuck_ceiling for ch in self.channels)):
             if self.stuck_since is None:
                 self.stuck_since = t
             elif (t - self.stuck_since) * 1000 >= self.stuck_ms:
@@ -259,7 +266,7 @@ class Engine:
         """Adopt current raws as floors (clamped) so a drifted rest releases."""
         for ch in self.channels:
             span = max(ch.peak - ch.floor, 1e-6)
-            ch.floor_track = min(max(ch.floor_track, ch.last_raw),
+            ch.floor_track = min(max(ch.floor_track, ch.raw_lo),
                                  ch.floor + 0.8 * span)
 
 
