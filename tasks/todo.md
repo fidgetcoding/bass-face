@@ -12,6 +12,8 @@
 - [ ] T6: Feel pass (curves, ratchet release, smoothing) — live with Nate
 - [ ] T7: Occlusion resilience (sunglasses detection + fallback map) — sunglasses test
 - [ ] Ship phase (separate session): .app bundle, Patreon drop, demo capture
+- [x] v1.1 VERIFIED 2026-07-19 — all 4 Map slots drive FACE macros (BROW OTT / MOUTH DRIVE / SQUINT PHASE / FACE FILTH) via live.remote~
+- [ ] v1.2 polish: presentation mode (knobs-only device face)
 - [ ] v2: secret settings — spoon/key bump (LFO chaos) + hands-on-head (reverb freeze); needs HandLandmarker
 - [ ] BUG (Nate priority): release sticks — detection-side per Nate; add --debug readout and trace real numbers
 - [ ] v1.2: device auto-launches tracker via Node for Max (pairs with Ship .app bundle)
