@@ -412,6 +412,7 @@ def main() -> None:
     print(f"calibration: {newest_calibration().name}", file=sys.stderr)
     shake = ShakeDetector()
     unlocked_flash_until = 0.0
+    solo: int | None = None  # 0-3 = only that channel broadcasts (mapping aid)
 
     frames = 0
     fps = 0.0
@@ -442,8 +443,10 @@ def main() -> None:
                     unlocked_flash_until = t + 0.6
                     print("unlocked (head shake)", file=sys.stderr)
 
+            sendable = out if solo is None else {
+                name: v for i, (name, v) in enumerate(out.items()) if i == solo}
             for o in outputs:
-                o.send(out)
+                o.send(sendable)
 
             if not args.no_preview:
                 disp = cv2.flip(frame, 1)
@@ -462,10 +465,15 @@ def main() -> None:
                         label += " LOCK"
                     cv2.putText(disp, label, (218, y + 14),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1)
-                cv2.putText(disp, f"cam {cam_idx}  (c = switch, q = quit, "
-                            f"shake head = unlock)",
-                            (10, h - 12), cv2.FONT_HERSHEY_SIMPLEX, 0.45,
-                            (200, 200, 200), 1)
+                hint = (f"cam {cam_idx}  (c = switch, q = quit, shake = unlock, "
+                        f"1-4 = solo CC for mapping, 0 = all)")
+                if solo is not None:
+                    cv2.putText(disp, f"SOLO: {LABELS[CHANNEL_ORDER[solo]]} "
+                                f"(CC {20 + solo}) - press 0 to restore",
+                                (10, h - 36), cv2.FONT_HERSHEY_SIMPLEX, 0.55,
+                                (0, 200, 255), 2)
+                cv2.putText(disp, hint, (10, h - 12),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.45, (200, 200, 200), 1)
                 if t < unlocked_flash_until:
                     cv2.putText(disp, "UNLOCKED", (w // 2 - 90, 50),
                                 cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 255, 0), 3)
@@ -476,6 +484,13 @@ def main() -> None:
                 if key == ord("c"):
                     cap.release()
                     cam_idx, cap = cycle_camera(cam_idx)
+                elif key in (ord("1"), ord("2"), ord("3"), ord("4")):
+                    solo = key - ord("1")
+                    print(f"solo: {CHANNEL_ORDER[solo]} (CC {20 + solo})",
+                          file=sys.stderr)
+                elif key == ord("0"):
+                    solo = None
+                    print("solo off - all channels broadcasting", file=sys.stderr)
 
             frames += 1
             if frames % 10 == 0:

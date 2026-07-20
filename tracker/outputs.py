@@ -27,6 +27,8 @@ class MidiOut:
 
     def send(self, channels: dict[str, float]) -> None:
         for i, name in enumerate(CHANNEL_ORDER):
+            if name not in channels:  # channel soloed out (mapping isolation)
+                continue
             value = min(max(int(round(channels[name] * 127)), 0), 127)
             if self._last.get(name) != value:
                 self._last[name] = value
@@ -45,7 +47,9 @@ class OscOut:
 
     def send(self, channels: dict[str, float]) -> None:
         for name in CHANNEL_ORDER:
-            self._client.send_message(f"{OSC_PREFIX}/{name}", float(channels[name]))
+            if name in channels:
+                self._client.send_message(f"{OSC_PREFIX}/{name}",
+                                          float(channels[name]))
 
     def close(self) -> None:
         pass
