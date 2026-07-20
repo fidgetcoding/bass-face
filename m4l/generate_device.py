@@ -78,7 +78,7 @@ for i, (chan, short) in enumerate(zip(CHANNELS, SHORT)):
     box("comment", x, 120, 100, 20, short)
     unp = box("newobj", x, 150, 90, 22, "unpack 0 0. 0.", numin=1, numout=3,
               outlettype=["int", "float", "float"])
-    mid = box("message", x, 185, 50, 22, "id \\$1", numin=2, numout=1,
+    mid = box("message", x, 185, 50, 22, "id $1", numin=2, numout=1,
               outlettype=[""])
     scl = box("newobj", x, 220, 110, 22, "scale 0. 1. 0. 1.", numin=5,
               numout=1, outlettype=[""])
