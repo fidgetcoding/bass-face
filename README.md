@@ -35,6 +35,10 @@ My first sketch was a distortion plugin with a webcam bolted on. When I sat down
 
 ## Install and first run
 
+![Me at the laptop mid bass face, the Bass Face device in Live with all four dials maxed](assets/in-the-studio.jpg)
+
+*Full bass face, all four dials at max.*
+
 You need:
 
 - A Mac with a webcam. I run it on macOS 26 with the built-in camera.
@@ -131,7 +135,7 @@ FACE FILTH
 
 Map each macro to whatever you want that face to do. The device searches every device on its track and one level into rack chains, and drives each macro across its full range: neutral face at the bottom, your calibrated max at the top. Added or renamed a macro after the device loaded? Hit **rescan** on the device.
 
-**Let it start the tracker:** the device runs `tracker/core.py --autostart` with the Python in `~/code/bass-face/.venv` when it loads, and stops it when you delete the device or quit Live. Cloned somewhere else? Put that folder's full path in a file called `~/.bassface`. From your bass-face folder:
+**Let it start the tracker:** the device runs `tracker/core.py --autostart` with the Python in `~/code/bass-face/.venv` when it loads, and stops it when you delete the device or quit Live. Cloned somewhere else? Put that folder's full path in a one-line file called `~/.bassface` (Live doesn't pass your shell's environment variables to the device, so a file it is). From your bass-face folder:
 
 ```sh
 echo "$PWD" > ~/.bassface
@@ -160,6 +164,10 @@ the command. Then walk me through building the Live device from the README.
 
 ## How calibration works
 
+![My face as a green tracking mesh, blasting a waveform, with BROW OTT, SQUINT PHASE, MOUTH DRIVE and FACE FILTH readouts](assets/hologram.jpg)
+
+*How the tracker sees me, give or take the lasers.*
+
 Bass Face can't know your face until it's seen it, so the first run is a guided session on camera, about 30 seconds:
 
 1. **Neutral.** Two ticks count down, then you hold a dead face for 2 seconds. That sets each channel's resting floor (the median of what it saw).
@@ -183,6 +191,10 @@ It keeps learning while you play, too. For the first 2.5 seconds after launch it
 The five photos in `calibration/photos/` are my face in each phase. Before the webcam session existed, I ran them through MediaPipe (`tracker/analyze_photos.py`) to get a starting calibration, `calibration/nate-v1.json`. The tests still use it. Your tracking uses your own profile.
 
 ## What the four faces do
+
+![A retro gear catalogue ad: "Your face is the knob."](assets/your-face-is-the-knob.jpg)
+
+*The ad I'd run if I had a catalogue.*
 
 | Face | Macro | MIDI | In my rack |
 |---|---|---|---|
