@@ -11,7 +11,7 @@ Setting it up on someone's Mac:
 - Install: `python3.12 -m venv .venv && .venv/bin/pip install -r requirements.txt` from the repo root. `requirements.txt` pins the versions the owner runs (MediaPipe 0.10.35, PyObjC 12.2.1); don't unpin them, since a fresh MediaPipe is untested.
 - The device runs the tracker with `<repo>/.venv/bin/python`. It finds the repo at `~/code/bass-face`, or at the full path in the one-line file `~/.bassface` if it's cloned elsewhere. It's a file because Live doesn't pass shell environment variables to Node for Max.
 - Don't run `tracker/core.py` yourself. It turns on their camera, and with no `calibration/profile.json` it starts a calibration that needs their face in front of it. Give them the command.
-- Building the device and naming the four macros happen in Live and Max, by hand. Walk them through the README; don't script it.
+- The device and rack ship in `device/`. Copying them (plus the two `m4l/*.js` files) into the Live User Library is safe to script; README step 3 has the commands. Dragging them onto a track happens in Live, by hand.
 
 Working on it:
 

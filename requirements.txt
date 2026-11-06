@@ -1,0 +1,14 @@
+# Bass Face tracker (Python 3.12, macOS). Install: python3.12 -m venv .venv && .venv/bin/pip install -r requirements.txt
+mediapipe==0.10.35
+opencv-contrib-python==5.0.0.93
+numpy==2.5.1
+python-osc==1.10.2
+python-rtmidi==1.5.8
+pillow==12.3.0
+# PyObjC: pin the whole set to one version, or pip mixes 12.x and 13.x
+pyobjc-core==12.2.1
+pyobjc-framework-AVFoundation==12.2.1
+pyobjc-framework-Cocoa==12.2.1
+pyobjc-framework-CoreAudio==12.2.1
+pyobjc-framework-CoreMedia==12.2.1
+pyobjc-framework-Quartz==12.2.1

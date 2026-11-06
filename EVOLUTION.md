@@ -170,4 +170,6 @@ Trap to remember: every blind fix for the release stall missed, and both real fi
 
 Added the public docs: this file, the README, ESSENCE, SECURITY, AGENTS and the license. The five photos of my face stay in the repo on purpose; they're how it started, and the bass face one is in the README. `requirements.txt` pins the versions I run, since a fresh unpinned install now pulls a newer MediaPipe I haven't tested. The device's launcher used to point at my own folder; now it looks in `~/code/bass-face`, or wherever `~/.bassface` points.
 
-Checked: all 22 tests pass on macOS 26 with Python 3.12.13. The by-hand device build in the README hasn't been run fresh from this repo yet.
+Then I put the device itself in the repo: `device/BassFace.amxd` and `device/BASS FACE RACK.adg` are copies of the exact files in my User Library, so nobody has to rebuild the device by hand.
+
+Checked: all 22 tests pass on macOS 26 with Python 3.12.13.

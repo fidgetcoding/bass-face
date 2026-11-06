@@ -9,7 +9,7 @@
 Short version: [ESSENCE.md](ESSENCE.md). How it got built in one day: [EVOLUTION.md](EVOLUTION.md). What it touches on your Mac: [SECURITY.md](SECURITY.md).
 
 > [!NOTE]
-> **Heads up, this was fidgetcoded.** I built it in one day for my own Mac, my own face and my own rack, and it plays great there. There's no app to download yet: you set up the Python side yourself and build the Live device by hand. Every step is below. If one of them is off on your Mac, open an issue.
+> **Heads up, this was fidgetcoded.** I built it in one day for my own Mac, my own face and my own rack, and it plays great there. There's no app to download yet: you set up the Python side yourself and copy the device and my rack into Live. Every step is below. If one of them is off on your Mac, open an issue.
 
 <p align="center">
   <img src="calibration/photos/bass-face.jpg" width="260" alt="Me at my desk pulling a full bass face at the webcam">
@@ -112,19 +112,35 @@ This route records: with Automation Arm on, Live writes your face moves as autom
 
 Drop the device on a track and the camera turns on by itself. Four macros named **BROW OTT**, **MOUTH DRIVE**, **SQUINT PHASE** and **FACE FILTH** follow your face. No mapping, and it finds them again after every reload.
 
-There's no ready-made `BassFace.amxd` or rack in this repo yet. Mine live in my own Live User Library. Until they're in here, you build the device from `m4l/BassFace-map.maxpat` and name four macros on your own rack. This is the by-hand route I used for the first version of the device; I haven't run it fresh from this repo, so tell me if a step is off.
+**Install the device and my rack.** From your bass-face folder:
 
-**Build the device:**
+```sh
+LIB="$HOME/Music/Ableton/User Library/Presets/Audio Effects"
+mkdir -p "$LIB/Max Audio Effect" "$LIB/Audio Effect Rack"
+cp device/BassFace.amxd m4l/bassface_map.js m4l/bassface_launcher.js "$LIB/Max Audio Effect/"
+cp "device/BASS FACE RACK.adg" "$LIB/Audio Effect Rack/"
+```
+
+The two `.js` files have to sit next to `BassFace.amxd`; the device looks for them there. Moved your User Library? Swap in your path (Live shows it under **Settings → Library**).
+
+In Live's browser, under **User Library → Presets → Audio Effects**, drag **BASS FACE RACK** onto a track with something bassy on it, then drag **BassFace** from **Max Audio Effect** onto the same track after the rack. That's it: the rack's four macros already have the right names.
+
+The rack is the one I play: BROW OTT, MOUTH DRIVE, SQUINT PHASE and FACE FILTH fan out to three OTTs, a Saturator, a Phaser-Flanger and an Overdrive. Use it as is, or as a starting point.
+
+<details>
+<summary>Build the device from source instead</summary>
 
 1. In Live, drag a **Max Audio Effect** onto the track with your rack and click its edit button. Max opens the device.
 2. In Max, open `m4l/BassFace-map.maxpat` with **File → Open**. It opens in presentation view. Unlock it with **⌘E**, switch to the patching view with **⌥⌘E**, then select all (**⌘A**) and copy (**⌘C**).
    Do that select-all in the patching view. In presentation view ⌘A only grabs what's on the device face, and you'd paste a gutted device. Ask me how I know.
 3. Back in the device's window: unlock it, select everything that's already there, delete it (the patch brings its own audio in and out), and paste.
 4. In the patcher inspector, tick **Open in Presentation**, so Live shows the clean device face.
-5. Save it as `BassFace.amxd`. Live suggests the `Presets/Audio Effects/Max Audio Effect` folder in your User Library; keep that.
-6. Copy `m4l/bassface_map.js` and `m4l/bassface_launcher.js` into that same folder, next to `BassFace.amxd`. The device looks for them there.
+5. Save it as `BassFace.amxd` in your User Library's `Presets/Audio Effects/Max Audio Effect` folder.
+6. Copy `m4l/bassface_map.js` and `m4l/bassface_launcher.js` into that same folder, next to `BassFace.amxd`.
 
-**Name your macros:** on the same track, give four macros on any rack these exact names, capitals and spaces included:
+</details>
+
+**Your own rack instead:** on the same track, give four macros on any rack these exact names, capitals and spaces included:
 
 ```text
 BROW OTT
@@ -159,7 +175,7 @@ Clone it to ~/code/bass-face, make a Python 3.12 venv at .venv and install
 requirements.txt into it. Then run tests/test_engine.py and tests/test_outputs.py with
 the venv's Python (skip test_outputs.py if Ableton Live is open). Don't run
 tracker/core.py yourself: it turns on my camera and calibrates on my face, so give me
-the command. Then walk me through building the Live device from the README.
+the command. Then copy the device and rack into my Live User Library as README step 3 shows.
 ```
 
 ## How calibration works
@@ -223,6 +239,7 @@ What MediaPipe watches for each one: the brow raise (inner and outer), how far y
 
 ## What's in it
 
+- **The device and my rack, ready to drop in.** `device/BassFace.amxd` and `device/BASS FACE RACK.adg` are the exact files I play with.
 - **Four faces, four knobs,** in ladder order, with locks on the way up and one shared drain on the way down.
 - **Auto-wire by name.** Name four macros and the device finds them. It looks them up fresh on every load, so it survives set reloads and track moves. I proved it by opening a brand new set from my template: the macros followed my face with zero setup.
 - **Starts its own camera.** The device launches the tracker when it loads and stops it when it unloads. The CAM toggle shows whether it's actually running.
@@ -247,7 +264,7 @@ What MediaPipe watches for each one: the brow raise (inner and outer), how far y
 
 - **Mac only.** The virtual MIDI port, the camera picking, the calibration sounds and the device's launcher all lean on macOS. I've only run it on macOS 26.
 - **Live 12.** I built the device on Live 12 Suite. The MIDI route needs no Max for Live.
-- **No download yet.** No app, no ready-made device, no rack in the repo. You set up Python and build the device by hand.
+- **No app yet.** You set up the Python side yourself, and the device and rack are files you copy into Live.
 - **A webcam and some light.** It reads one face. Too dark and calibration stops.
 - **Sunglasses hurt.** Dark lenses hide your eyes and brows, so the eyebrow and squint faces read badly. A fallback that moves the OTT with your head tilt instead is planned and not built.
 - **One face, one profile.** It tracks one face and keeps one calibration file. I've only ever calibrated my own face, so tell me how yours goes.
@@ -257,7 +274,7 @@ What MediaPipe watches for each one: the brow raise (inner and outer), how far y
 
 ## Uninstall
 
-Delete the bass-face folder and `~/.bassface` if you made one. In your User Library's `Presets/Audio Effects/Max Audio Effect` folder, delete `BassFace.amxd`, `bassface_map.js` and `bassface_launcher.js`. In Live's MIDI settings, the Bass Face port disappears once the tracker is gone.
+Delete the bass-face folder and `~/.bassface` if you made one. In your User Library's `Presets/Audio Effects/Max Audio Effect` folder, delete `BassFace.amxd`, `bassface_map.js` and `bassface_launcher.js`, and delete `BASS FACE RACK.adg` from `Audio Effect Rack`. In Live's MIDI settings, the Bass Face port disappears once the tracker is gone.
 
 ## Credits
 

@@ -23,4 +23,4 @@
 - Every checkpoint that night passed live: tracker and calibration on camera, my eyebrows moving an OTT knob in Live 12 over MIDI, the device's dials recording automation, auto-wire by name, and a brand new set from my template following my face with zero setup.
 - The release stall (sound hanging on for 1 to 4 seconds after a long hold) is fixed and played smooth live.
 - 19 engine tests and 3 output tests pass, checked again on November 6, 2026, on macOS 26 with Python 3.12.13.
-- I've only calibrated my own face. There's no app, no ready-made device file and no rack in the repo yet, so the Live side is built by hand.
+- I've only calibrated my own face. There's no app yet: the Python side is set up by hand, and the device and my rack are files you copy into Live.

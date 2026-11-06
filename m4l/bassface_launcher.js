@@ -6,10 +6,22 @@
 
 const Max = require('max-api');
 const { spawn, execSync } = require('child_process');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
 
-// Dev install path; Ship build swaps this for the bundled BassFace.app.
-const TRACKER_DIR = '/Users/nathandavidovich/code/bass-face';
-const PY = TRACKER_DIR + '/.venv/bin/python';
+// Where the bass-face repo lives. Default: ~/code/bass-face.
+// Cloned somewhere else? Put that folder's full path in a file called ~/.bassface
+// (Live doesn't pass your shell's environment variables to Node for Max, so a file it is).
+function trackerDir() {
+    try {
+        const p = fs.readFileSync(path.join(os.homedir(), '.bassface'), 'utf8').trim();
+        if (p) return p.replace(/^~(?=$|\/)/, os.homedir());
+    } catch (e) {}
+    return path.join(os.homedir(), 'code', 'bass-face');
+}
+const TRACKER_DIR = trackerDir();
+const PY = path.join(TRACKER_DIR, '.venv', 'bin', 'python');
 
 let child = null;
 
