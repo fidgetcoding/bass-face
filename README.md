@@ -14,7 +14,7 @@ Short version: [ESSENCE.md](ESSENCE.md). How it got built in one day: [EVOLUTION
 <p align="center">
   <img src="calibration/photos/bass-face.jpg" width="260" alt="Me at my desk pulling a full bass face at the webcam">
   <br>
-  <em>The face in question. I was making it anyway, so now it turns every knob in the rack to full.</em>
+  <em>The face in question. A bass face is what your face does on its own when you hear the nastiest, crunchiest, most violent, most mind-blowing sound design. I was making it anyway, so now it turns every knob in the rack to full.</em>
 </p>
 
 ## What it is
